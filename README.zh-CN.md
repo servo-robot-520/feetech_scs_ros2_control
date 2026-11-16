@@ -65,8 +65,8 @@ sudo usermod -aG dialout "$USER"
     <state_interface name="voltage"/>
     <state_interface name="temperature"/>
     <param name="id">1</param>
-    <param name="range_min">-90</param>
-    <param name="range_max">90</param>
+    <param name="range_min">100</param>
+    <param name="range_max">923</param>
     <param name="p_coefficient">16</param>
     <param name="d_coefficient">16</param>
   </joint>
@@ -122,8 +122,8 @@ sudo usermod -aG dialout "$USER"
 | 参数 | 寄存器 | 范围 | 说明 |
 |---|---|---|---|
 | `id` | — | 0..253 | **必填**。总线上必须唯一。 |
-| `range_min` | 9（2 字节） | −range_deg/2..+range_deg/2 | 命令/EEPROM 下限，单位度，相对中位。 |
-| `range_max` | 11（2 字节） | −range_deg/2..+range_deg/2 | 命令/EEPROM 上限，单位度，相对中位。 |
+| `range_min` | 9（2 字节） | 0..1023 | 命令/EEPROM 下限，单位 tick。 |
+| `range_max` | 11（2 字节） | 0..1023 | 命令/EEPROM 上限，单位 tick。 |
 | `range_deg` | — | 0.1..360 | 用于 tick/弧度换算的机械行程。 |
 | `speed` | — | 1..1000 | 命令速度，单位 tick/s。 |
 | `return_delay_time` | 7 | 0..254 | 单位 2 µs。 |
@@ -158,8 +158,8 @@ joints:
     id: 1
     p_coefficient: 16
     d_coefficient: 16
-    range_min: -60
-    range_max: 60
+    range_min: 100
+    range_max: 923
     range_deg: 300
     speed: 800
     max_temperature: 70
@@ -172,8 +172,8 @@ joints:
     overload_torque: 80
   elbow_joint:
     id: 2
-    range_min: -80
-    range_max: 80
+    range_min: 20
+    range_max: 1003
 ```
 
 条目按**舵机 id** 匹配 URDF 关节；YAML 中的关节名只是标签。相同 id 下 YAML 值覆盖
@@ -188,9 +188,9 @@ radians = (ticks - 511) * range_deg * pi / 180 / 1024
 ```
 
 `range_deg` 默认 300（SC215）。SC225 有 180° 与 300° 两种规格，请按实际舵机为该关节
-设置 `range_deg`。`range_min`/`range_max` 使用同一套角度约定（0° 为中位，即 tick 511），
-有效范围为 ±`range_deg`/2；写命令钳位和舵机 EEPROM 角度限制寄存器时会换算成 tick。
-命令会四舍五入到 tick，并钳位到 `range_min..range_max` 后发送。
+设置 `range_deg`。`range_min`/`range_max` 为原始 tick 值（0..1023），直接写入舵机
+EEPROM 角度限制寄存器，并用于命令钳位；上位机或内存表读到的 tick 可直接填入配置，
+无需换算。命令会四舍五入到 tick，并钳位到 `range_min..range_max` 后发送。
 
 ## 状态接口
 

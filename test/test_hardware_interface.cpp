@@ -153,18 +153,17 @@ namespace feetech_servo_ros2_control {
             EXPECT_FALSE(bus_->torque_enabled(2));
         }
 
-        TEST_F(HardwareInterfaceTest, ClampsCommandToConfiguredAngleRange) {
+        TEST_F(HardwareInterfaceTest, ClampsCommandToConfiguredTickRange) {
             auto info = make_hardware_info(bus_->slave_path(), {1});
-            // range_deg = 300：-30 度 -> tick 409，+30 度 -> tick 613。
-            info.joints[0].parameters["range_min"] = "-30";
-            info.joints[0].parameters["range_max"] = "30";
+            info.joints[0].parameters["range_min"] = "600";
+            info.joints[0].parameters["range_max"] = "700";
 
             FeetechServoHardwareInterface hardware;
             ASSERT_TRUE(init_and_configure(hardware, info));
-            EXPECT_EQ(bus_->register_value(1, kRegisterMinAngleLimit), 0x01);
-            EXPECT_EQ(bus_->register_value(1, kRegisterMinAngleLimit + 1), 0x99);
+            EXPECT_EQ(bus_->register_value(1, kRegisterMinAngleLimit), 0x02);
+            EXPECT_EQ(bus_->register_value(1, kRegisterMinAngleLimit + 1), 0x58);
             EXPECT_EQ(bus_->register_value(1, kRegisterMaxAngleLimit), 0x02);
-            EXPECT_EQ(bus_->register_value(1, kRegisterMaxAngleLimit + 1), 0x65);
+            EXPECT_EQ(bus_->register_value(1, kRegisterMaxAngleLimit + 1), 0xBC);
             auto commands = hardware.export_command_interfaces();
             ASSERT_EQ(hardware.on_activate(rclcpp_lifecycle::State()),
                       hardware_interface::CallbackReturn::SUCCESS);
@@ -172,14 +171,14 @@ namespace feetech_servo_ros2_control {
             commands[0].set_value(3.14159265358979323846 / 2.0);
             ASSERT_EQ(hardware.write(rclcpp::Time{}, rclcpp::Duration::from_seconds(0.01)),
                       hardware_interface::return_type::OK);
-            ASSERT_TRUE(test::wait_for([&] { return bus_->present_position(1) == 613; }));
-            EXPECT_EQ(bus_->present_position(1), 613);
+            ASSERT_TRUE(test::wait_for([&] { return bus_->present_position(1) == 700; }));
+            EXPECT_EQ(bus_->present_position(1), 700);
 
             commands[0].set_value(-3.14159265358979323846 / 2.0);
             ASSERT_EQ(hardware.write(rclcpp::Time{}, rclcpp::Duration::from_seconds(0.01)),
                       hardware_interface::return_type::OK);
-            ASSERT_TRUE(test::wait_for([&] { return bus_->present_position(1) == 409; }));
-            EXPECT_EQ(bus_->present_position(1), 409);
+            ASSERT_TRUE(test::wait_for([&] { return bus_->present_position(1) == 600; }));
+            EXPECT_EQ(bus_->present_position(1), 600);
         }
 
         TEST_F(HardwareInterfaceTest, YamlOverridesUrdfParametersByServoId) {
@@ -191,7 +190,7 @@ namespace feetech_servo_ros2_control {
                         "  arm_joint:\n"
                         "    id: 1\n"
                         "    p_coefficient: 33\n"
-                        "    range_max: 90\n";
+                        "    range_max: 900\n";
             }
 
             auto info = make_hardware_info(bus_->slave_path(), {1});
@@ -202,7 +201,7 @@ namespace feetech_servo_ros2_control {
             ASSERT_TRUE(init_and_configure(hardware, info));
             EXPECT_EQ(bus_->register_value(1, kRegisterPCoefficient), 33);
             EXPECT_EQ(bus_->register_value(1, kRegisterMaxAngleLimit), 0x03);
-            EXPECT_EQ(bus_->register_value(1, kRegisterMaxAngleLimit + 1), 0x32);
+            EXPECT_EQ(bus_->register_value(1, kRegisterMaxAngleLimit + 1), 0x84);
 
             std::filesystem::remove(yaml_path);
         }
@@ -253,9 +252,18 @@ namespace feetech_servo_ros2_control {
             EXPECT_EQ(bus_->register_value(1, kRegisterEepromLock), 1);
         }
 
-        TEST_F(HardwareInterfaceTest, RejectsAngleLimitOutsideMechanicalRange) {
+        TEST_F(HardwareInterfaceTest, RejectsAngleLimitOutsideTickRange) {
             auto info = make_hardware_info(bus_->slave_path(), {1});
-            info.joints[0].parameters["range_min"] = "200";
+            info.joints[0].parameters["range_min"] = "1024";
+
+            FeetechServoHardwareInterface hardware;
+            EXPECT_EQ(hardware.on_init(info), hardware_interface::CallbackReturn::ERROR);
+        }
+
+        TEST_F(HardwareInterfaceTest, RejectsRangeMinNotSmallerThanMax) {
+            auto info = make_hardware_info(bus_->slave_path(), {1});
+            info.joints[0].parameters["range_min"] = "700";
+            info.joints[0].parameters["range_max"] = "600";
 
             FeetechServoHardwareInterface hardware;
             EXPECT_EQ(hardware.on_init(info), hardware_interface::CallbackReturn::ERROR);

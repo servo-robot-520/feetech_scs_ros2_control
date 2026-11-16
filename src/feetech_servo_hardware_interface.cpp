@@ -389,25 +389,24 @@ namespace feetech_servo_ros2_control {
                 }
             }
 
-            const double half_range_deg = joint.range_deg / 2.0;
             if (const auto it = merged.find("range_min"); it != merged.end()) {
-                double degrees = 0.0;
-                if (const auto result = parse_real("Joint '" + joint.name + "' range_min (deg)", it->second,
-                                                   -half_range_deg, half_range_deg, &degrees);
+                int value = 0;
+                if (const auto result = parse_integer("Joint '" + joint.name + "' range_min (ticks)", it->second,
+                                                      0, 1023, &value);
                     !result) {
                     return fail(result.error());
                 }
-                joint.min_tick = degrees_to_tick(degrees, joint.range_deg);
+                joint.min_tick = static_cast<uint16_t>(value);
                 joint.eeprom_min_tick = joint.min_tick;
             }
             if (const auto it = merged.find("range_max"); it != merged.end()) {
-                double degrees = 0.0;
-                if (const auto result = parse_real("Joint '" + joint.name + "' range_max (deg)", it->second,
-                                                   -half_range_deg, half_range_deg, &degrees);
+                int value = 0;
+                if (const auto result = parse_integer("Joint '" + joint.name + "' range_max (ticks)", it->second,
+                                                      0, 1023, &value);
                     !result) {
                     return fail(result.error());
                 }
-                joint.max_tick = degrees_to_tick(degrees, joint.range_deg);
+                joint.max_tick = static_cast<uint16_t>(value);
                 joint.eeprom_max_tick = joint.max_tick;
             }
             if (joint.min_tick >= joint.max_tick) {

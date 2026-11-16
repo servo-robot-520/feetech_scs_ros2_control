@@ -128,29 +128,6 @@ namespace feetech_servo_ros2_control {
         return range_deg * kPi / 180.0 / static_cast<double>(kPositionTicks);
     }
 
-    /// @brief 计算每个 tick 对应的角度（度）。
-    /// @param range_deg 舵机 0..1023 tick 对应的机械行程（度）。
-    inline double degrees_per_tick(const double range_deg) {
-        return range_deg / static_cast<double>(kPositionTicks);
-    }
-
-    /// @brief 将 tick 转换为相对中位的角度（度）。
-    /// @param tick 0..1023 的位置值。
-    /// @param range_deg 舵机机械行程（度）。
-    inline double tick_to_degrees(const uint16_t tick, const double range_deg) {
-        return (static_cast<double>(tick) - static_cast<double>(kPositionMidpoint)) *
-            degrees_per_tick(range_deg);
-    }
-
-    /// @brief 将相对中位的角度（度）转换为 tick，并钳位到 0..1023。
-    /// @param degrees 相对中位的角度，0 度对应 tick 511。
-    /// @param range_deg 舵机机械行程（度）。
-    inline uint16_t degrees_to_tick(const double degrees, const double range_deg) {
-        const auto tick = static_cast<long>(std::lround(degrees / degrees_per_tick(range_deg))) +
-            static_cast<long>(kPositionMidpoint);
-        return static_cast<uint16_t>(std::clamp<long>(tick, 0, static_cast<long>(kPositionTicks) - 1));
-    }
-
     /// @brief 将 tick 转换为相对中位的弧度。
     /// @param tick 0..1023 的位置值。
     /// @param range_deg 舵机机械行程（度）。
