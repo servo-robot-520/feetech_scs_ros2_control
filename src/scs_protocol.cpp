@@ -47,9 +47,16 @@ namespace feetech_servo_ros2_control {
         port_(port), response_timeout_(response_timeout) {
     }
 
+    void ScsProtocol::set_trace_hook(TraceHook hook) {
+        trace_hook_ = std::move(hook);
+    }
+
     Result ScsProtocol::transact(const std::vector<uint8_t>& packet, const uint8_t expected_id,
                                  const std::span<uint8_t> payload) const {
         port_.flush_input();
+        if (trace_hook_) {
+            trace_hook_("tx", packet);
+        }
         if (const auto result = port_.write(packet); !result) {
             return Result::failure("Failed to send command to " + servo_label(expected_id) + ": " +
                 result.error());
@@ -101,6 +108,11 @@ namespace feetech_servo_ros2_control {
         if (const auto result = port_.read_exact(body, response_timeout_); !result) {
             return Result::failure("Incomplete response from " + servo_label(expected_id) + ": " +
                 result.error());
+        }
+        if (trace_hook_) {
+            std::vector<uint8_t> frame{kHeader, kHeader, id, length};
+            frame.insert(frame.end(), body.begin(), body.end());
+            trace_hook_("rx", frame);
         }
 
         auto sum = static_cast<uint8_t>(id + length);
@@ -198,8 +210,11 @@ namespace feetech_servo_ros2_control {
         }
 
         port_.flush_input();
-        if (const auto result = port_.write(make_packet(kBroadcastId, kInstructionSyncWrite, params));
-            !result) {
+        const auto packet = make_packet(kBroadcastId, kInstructionSyncWrite, params);
+        if (trace_hook_) {
+            trace_hook_("tx", packet);
+        }
+        if (const auto result = port_.write(packet); !result) {
             return Result::failure("Failed to send SYNC WRITE: " + result.error());
         }
         return Result::success();

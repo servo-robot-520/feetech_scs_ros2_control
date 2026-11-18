@@ -123,5 +123,36 @@ namespace feetech_servo_ros2_control {
             EXPECT_EQ(bus.register_value(1, kRegisterEepromLock), 1);
         }
 
+        TEST(ScsStateBus, TraceHookCapturesFrames) {
+            FakeScsBus bus({1});
+            ScsSerialPort port;
+            ASSERT_TRUE(port.open(bus.slave_path(), 1000000));
+            ScsProtocol protocol(port, std::chrono::milliseconds(50));
+
+            std::vector<std::pair<std::string, std::vector<uint8_t>>> frames;
+            protocol.set_trace_hook(
+                [&frames](const char* direction, const std::span<const uint8_t> frame) {
+                    frames.emplace_back(direction, std::vector<uint8_t>(frame.begin(), frame.end()));
+                });
+
+            ASSERT_TRUE(protocol.ping(1));
+            ASSERT_EQ(frames.size(), 2u);
+            EXPECT_EQ(frames[0].first, "tx");
+            // PING 帧：FF FF 01 02 01 FB
+            EXPECT_EQ(frames[0].second, std::vector<uint8_t>({0xFF, 0xFF, 0x01, 0x02, 0x01, 0xFB}));
+            EXPECT_EQ(frames[1].first, "rx");
+            // PING 应答帧：FF FF 01 02 <状态 0x00> <校验>，共 6 字节。
+            ASSERT_EQ(frames[1].second.size(), 6u);
+            EXPECT_EQ(frames[1].second[0], 0xFF);
+            EXPECT_EQ(frames[1].second[1], 0xFF);
+            EXPECT_EQ(frames[1].second[2], 0x01);
+            EXPECT_EQ(frames[1].second[4], 0x00);
+
+            // 清除钩子后不再记录。
+            protocol.set_trace_hook(nullptr);
+            ASSERT_TRUE(protocol.ping(1));
+            EXPECT_EQ(frames.size(), 2u);
+        }
+
     } // namespace
 } // namespace feetech_servo_ros2_control

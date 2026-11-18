@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <functional>
 #include <span>
 #include <vector>
 
@@ -31,10 +32,16 @@ namespace feetech_servo_ros2_control {
     /// @brief SCS（SCSCL）协议客户端，一个实例对应一条串口总线。
     class ScsProtocol {
     public:
+        /// @brief 帧级调试钩子：收发方向（"tx"/"rx"）+ 原始字节。
+        using TraceHook = std::function<void(const char* direction, std::span<const uint8_t> frame)>;
+
         /// @brief 构造函数。
         /// @param port 已打开的串口。
         /// @param response_timeout 等待单个舵机应答的超时时间。
         ScsProtocol(ScsSerialPort& port, std::chrono::milliseconds response_timeout);
+
+        /// @brief 设置/清除帧级调试钩子；回调在调用线程同步触发。
+        void set_trace_hook(TraceHook hook);
 
         /// @brief 发送 PING 并等待应答，用于检测舵机是否在线。
         Result ping(uint8_t id) const;
@@ -119,6 +126,7 @@ namespace feetech_servo_ros2_control {
 
         ScsSerialPort& port_;
         std::chrono::milliseconds response_timeout_;
+        TraceHook trace_hook_;
     };
 
 } // namespace feetech_servo_ros2_control
