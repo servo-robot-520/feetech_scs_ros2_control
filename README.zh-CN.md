@@ -147,6 +147,20 @@ EEPROM 参数仅在舵机当前值不同时写入，写入前关闭扭矩并解�
 电位器舵机不存在的参数会直接报错，而不是静默忽略：`homing_offset`、`offset`、
 `i_coefficient`、`acceleration`、`protection_current`、`max_torque_limit`。
 
+## 协议库
+
+`feetech_servo_driver` 库不依赖 ROS，可供独立工具链接。除传输层
+（`ScsSerialPort`）与 READ / WRITE / SYNC WRITE 客户端（`ScsProtocol`）外，还提供：
+
+- `ScsProtocol::scan()` —— 总线扫描（PING 遍历）。
+- `ScsProtocol::read_identity()` —— 固件版本与型号读取。
+- `ScsProtocol::read_state()` / `decode_feedback()` —— 反馈块解码
+  （位置、速度、负载、电压、温度、电流、移动标志）。
+- `ScsProtocol::write_word()` / `write_eeprom()` —— 16 位寄存器写入与 EEPROM
+  安全流程（关扭矩 → 解锁 → 写入 → 回锁）。
+- `scs_params.hpp` —— 参数描述表（地址、字宽、范围、单位、存储区），
+  与插件的配置校验共用同一份元数据。
+
 ## 关节配置文件
 
 ```yaml

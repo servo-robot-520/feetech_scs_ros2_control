@@ -158,6 +158,21 @@ SCS potentiometer servos are rejected with an error instead of being silently
 ignored: `homing_offset`, `offset`, `i_coefficient`, `acceleration`,
 `protection_current`, `max_torque_limit`.
 
+## Protocol library
+
+The `feetech_servo_driver` library is independent of ROS and can be linked by
+standalone tools. In addition to the transport (`ScsSerialPort`) and the
+READ / WRITE / SYNC WRITE client (`ScsProtocol`) it provides:
+
+- `ScsProtocol::scan()` — ping sweep to discover online servos on the bus.
+- `ScsProtocol::read_identity()` — firmware version and model.
+- `ScsProtocol::read_state()` / `decode_feedback()` — decoded feedback block
+  (position, velocity, load, voltage, temperature, current, moving flag).
+- `ScsProtocol::write_word()` / `write_eeprom()` — word writes and the safe
+  EEPROM flow (torque off, unlock, write, lock).
+- `scs_params.hpp` — the parameter descriptor table (address, width, range,
+  unit, storage area), shared with the plugin's configuration validation.
+
 ## Joint config file
 
 ```yaml

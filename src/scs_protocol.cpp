@@ -227,4 +227,73 @@ namespace feetech_servo_ros2_control {
         return read_word(id, kRegisterModel);
     }
 
+    Expected<ScsServoIdentity> ScsProtocol::read_identity(const uint8_t id) const {
+        // 身份块：固件主/次版本（0x00..0x01）、END（0x02）、舵机主/次版本（0x03..0x04）。
+        std::array<uint8_t, 5> data{};
+        if (const auto result = read_registers(id, kRegisterFirmwareMajor, data); !result) {
+            return Expected<ScsServoIdentity>::failure(result.error());
+        }
+        ScsServoIdentity identity;
+        identity.firmware_major = data[kRegisterFirmwareMajor];
+        identity.firmware_minor = data[kRegisterFirmwareMinor];
+        identity.model = static_cast<uint16_t>((data[kRegisterServoMajor] << 8) |
+                                               data[kRegisterServoMinor]);
+        return Expected<ScsServoIdentity>(identity);
+    }
+
+    Expected<ScsServoState> ScsProtocol::read_state(const uint8_t id) const {
+        std::array<uint8_t, kFeedbackLength> feedback{};
+        if (const auto result = read_registers(id, kRegisterPresentPosition, feedback); !result) {
+            return Expected<ScsServoState>::failure(result.error());
+        }
+        return decode_feedback(feedback);
+    }
+
+    Result ScsProtocol::write_word(const uint8_t id, const uint8_t address,
+                                   const uint16_t value) const {
+        std::array<uint8_t, 2> data{};
+        encode_word(data.data(), value);
+        return write_registers(id, address, data);
+    }
+
+    Result ScsProtocol::write_eeprom(const uint8_t id, const uint8_t address,
+                                     const std::span<const uint8_t> data) const {
+        if (const auto result = set_torque_enabled(id, false); !result) {
+            return Result::failure("Disabling torque before EEPROM write failed: " +
+                                   result.error());
+        }
+        if (const auto result = set_eeprom_locked(id, false); !result) {
+            return Result::failure("Unlocking EEPROM failed: " + result.error());
+        }
+        const auto write_result = write_registers(id, address, data);
+        // 写入失败也要回锁，避免舵机停留在解锁状态。
+        const auto lock_result = set_eeprom_locked(id, true);
+        if (!write_result) {
+            return Result::failure("EEPROM write failed: " + write_result.error());
+        }
+        if (!lock_result) {
+            return Result::failure("Locking EEPROM failed: " + lock_result.error());
+        }
+        return Result::success();
+    }
+
+    Expected<std::vector<uint8_t>> ScsProtocol::scan(const uint8_t first_id,
+                                                     const uint8_t last_id) const {
+        if (!port_.is_open()) {
+            return Expected<std::vector<uint8_t>>::failure("Serial port is not open");
+        }
+        if (first_id > last_id) {
+            return Expected<std::vector<uint8_t>>::failure(
+                "Invalid scan range " + std::to_string(first_id) + ".." +
+                std::to_string(last_id));
+        }
+        std::vector<uint8_t> ids;
+        for (int id = first_id; id <= last_id; ++id) {
+            if (ping(static_cast<uint8_t>(id))) {
+                ids.push_back(static_cast<uint8_t>(id));
+            }
+        }
+        return Expected<std::vector<uint8_t>>(ids);
+    }
+
 } // namespace feetech_servo_ros2_control

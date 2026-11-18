@@ -1,7 +1,9 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstdint>
 #include <string_view>
 
 namespace feetech_servo_ros2_control {
@@ -24,10 +26,12 @@ namespace feetech_servo_ros2_control {
     inline constexpr uint8_t kRegisterMaxInputVoltage = 14; // 单位 0.1 V
     inline constexpr uint8_t kRegisterMinInputVoltage = 15; // 单位 0.1 V
     inline constexpr uint8_t kRegisterMaxTorque = 16; // 2 字节，0..1000
+    inline constexpr uint8_t kRegisterPhase = 18; // 特殊功能字节（相位），无特别需求不可修改
     inline constexpr uint8_t kRegisterUnloadingCondition = 19; // 位域
     inline constexpr uint8_t kRegisterLedAlarmCondition = 20; // 位域
     inline constexpr uint8_t kRegisterPCoefficient = 21;
     inline constexpr uint8_t kRegisterDCoefficient = 22;
+    inline constexpr uint8_t kRegisterMinStartupTorque = 24; // 2 字节，0..1000
     inline constexpr uint8_t kRegisterCwDeadZone = 26;
     inline constexpr uint8_t kRegisterCcwDeadZone = 27;
     inline constexpr uint8_t kRegisterProtectionTorque = 37; // 最大扭矩百分比
@@ -60,6 +64,10 @@ namespace feetech_servo_ros2_control {
 
     inline constexpr uint8_t kBroadcastId = 0xFE;
     inline constexpr uint8_t kMaxServoId = 253;
+
+    // 波特率寄存器（地址 6）的索引表：0..7 对应下列波特率，出厂默认 0。
+    inline constexpr std::array<int, 8> kServoBaudRates{1000000, 500000, 250000, 128000,
+                                                       115200, 76800, 57600, 38400};
 
     // SCS 电位器版舵机使用 10 位绝对编码器。
     inline constexpr uint16_t kPositionTicks = 1024;

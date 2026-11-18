@@ -96,6 +96,10 @@ if (BUILD_TESTING)
     target_include_directories(test_scs_serial_port PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test)
     target_link_libraries(test_scs_serial_port feetech_servo_driver)
 
+    ament_add_gtest(test_scs_state test/test_scs_state.cpp)
+    target_include_directories(test_scs_state PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test)
+    target_link_libraries(test_scs_state feetech_servo_driver)
+
     ament_add_gtest(test_hardware_interface test/test_hardware_interface.cpp)
     target_include_directories(test_hardware_interface PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test)
     target_link_libraries(test_hardware_interface feetech_servo_ros2_control)

@@ -21,7 +21,9 @@
 #include <utility>
 #include <vector>
 
+#include "feetech_servo_ros2_control/scs_params.hpp"
 #include "feetech_servo_ros2_control/scs_register_map.hpp"
+#include "feetech_servo_ros2_control/scs_state.hpp"
 
 namespace feetech_servo_ros2_control {
     namespace {
@@ -465,18 +467,18 @@ namespace feetech_servo_ros2_control {
                                        joint.name + "') is not responding, aborting startup: " + result.error());
             }
 
-            std::array<uint8_t, 8> identity{};
-            if (const auto result = protocol_->read_registers(joint.id, kRegisterFirmwareMajor, identity); !result) {
+            const auto identity = protocol_->read_identity(joint.id);
+            if (!identity) {
                 return Result::failure("Configured servo id " + std::to_string(joint.id) + " (joint '" +
                                        joint.name + "'): reading identity failed, aborting startup: " +
-                                       result.error());
+                                       identity.error());
             }
 
-            const auto model = static_cast<uint16_t>((identity[kRegisterServoMajor] << 8) |
-                                                     identity[kRegisterServoMinor]);
+            const auto model = identity.value().model;
             LOG_INFO("servo id={} ({}): firmware={}.{} servo={}.{} model={}", static_cast<unsigned>(joint.id),
-                     joint.name, identity[kRegisterFirmwareMajor], identity[kRegisterFirmwareMinor],
-                     identity[kRegisterServoMajor], identity[kRegisterServoMinor], model_name(model));
+                     joint.name, identity.value().firmware_major, identity.value().firmware_minor,
+                     static_cast<uint8_t>(identity.value().model >> 8),
+                     static_cast<uint8_t>(identity.value().model & 0xFF), model_name(model));
 
             if (!is_supported_model(model)) {
                 LOG_WARN("servo id={} ({}): unsupported model {}", static_cast<unsigned>(joint.id), joint.name,
@@ -503,47 +505,41 @@ namespace feetech_servo_ros2_control {
     }
 
     Result FeetechServoHardwareInterface::build_register_settings(Joint& joint) {
-        struct ByteParameter {
-            const char* name;
-            uint8_t address;
-            int min;
-            int max;
-        };
-        struct WordParameter {
-            const char* name;
-            uint8_t address;
-            int min;
-            int max;
-        };
-
         // 所有 EEPROM 参数都在 on_init 阶段完成解析与范围校验，on_configure 只负责写入。
-        constexpr std::array<ByteParameter, 13> byte_parameters{{
-            {.name = "return_delay_time", .address = kRegisterReturnDelay, .min = 0, .max = 254},
-            {.name = "max_temperature", .address = kRegisterMaxTemperature, .min = 0, .max = 100},
-            {.name = "max_input_voltage", .address = kRegisterMaxInputVoltage, .min = 0, .max = 254},
-            {.name = "min_input_voltage", .address = kRegisterMinInputVoltage, .min = 0, .max = 254},
-            {.name = "unloading_condition", .address = kRegisterUnloadingCondition, .min = 0, .max = 254},
-            {.name = "led_alarm_condition", .address = kRegisterLedAlarmCondition, .min = 0, .max = 254},
-            {.name = "p_coefficient", .address = kRegisterPCoefficient, .min = 0, .max = 254},
-            {.name = "d_coefficient", .address = kRegisterDCoefficient, .min = 0, .max = 254},
-            {.name = "cw_dead", .address = kRegisterCwDeadZone, .min = 0, .max = 32},
-            {.name = "ccw_dead", .address = kRegisterCcwDeadZone, .min = 0, .max = 32},
-            {.name = "protection_torque", .address = kRegisterProtectionTorque, .min = 0, .max = 100},
-            {.name = "protection_time", .address = kRegisterProtectionTime, .min = 0, .max = 254},
-            {.name = "overload_torque", .address = kRegisterOverloadTorque, .min = 0, .max = 100},
-        }};
-        for (const auto& [name, address, min, max] : byte_parameters) {
-            const auto it = joint.params.find(name);
+        // 参数元数据（地址/字宽/范围）来自 scs_params.hpp 的参数描述表；id、波特率、
+        // 应答级别、相位与角度限制由专用逻辑处理，不在这里写入。
+        static constexpr std::array<std::string_view, 6> kReservedKeys{"id", "baud_rate",
+                                                                      "response_level", "phase",
+                                                                      "range_min", "range_max"};
+        for (const auto& descriptor : kParameterDescriptors) {
+            if (descriptor.access != ParamAccess::kEeprom) {
+                continue;
+            }
+            if (std::find(kReservedKeys.begin(), kReservedKeys.end(),
+                          std::string_view(descriptor.key)) != kReservedKeys.end()) {
+                continue;
+            }
+            const auto it = joint.params.find(descriptor.key);
             if (it == joint.params.end()) {
                 continue;
             }
             int value = 0;
-            if (const auto result = parse_integer("Joint '" + joint.name + "' " + name, it->second, min,
-                                                  max, &value);
+            if (const auto result = parse_integer("Joint '" + joint.name + "' " + descriptor.key,
+                                                  it->second, descriptor.min, descriptor.max,
+                                                  &value);
                 !result) {
                 return result;
             }
-            joint.byte_settings.push_back({.name = name, .address = address, .value = static_cast<uint8_t>(value)});
+            if (descriptor.width == ParamWidth::kByte) {
+                joint.byte_settings.push_back({.name = descriptor.key,
+                                               .address = descriptor.address,
+                                               .value = static_cast<uint8_t>(value)});
+            }
+            else {
+                joint.word_settings.push_back({.name = descriptor.key,
+                                               .address = descriptor.address,
+                                               .value = static_cast<uint16_t>(value)});
+            }
         }
 
         const auto find_byte_setting = [&joint](const char* name) -> const Joint::ByteSetting* {
@@ -559,23 +555,6 @@ namespace feetech_servo_ros2_control {
             min_voltage != nullptr && max_voltage != nullptr && min_voltage->value > max_voltage->value) {
             return Result::failure("Joint '" + joint.name +
                                    "': min_input_voltage must not exceed max_input_voltage");
-        }
-
-        constexpr std::array<WordParameter, 1> word_parameters{{
-            {.name = "max_torque", .address = kRegisterMaxTorque, .min = 0, .max = 1000},
-        }};
-        for (const auto& [name, address, min, max] : word_parameters) {
-            const auto it = joint.params.find(name);
-            if (it == joint.params.end()) {
-                continue;
-            }
-            int value = 0;
-            if (const auto result = parse_integer("Joint '" + joint.name + "' " + name, it->second, min,
-                                                  max, &value);
-                !result) {
-                return result;
-            }
-            joint.word_settings.push_back({.name = name, .address = address, .value = static_cast<uint16_t>(value)});
         }
 
         // 角度限制以度为单位（相对中位），写入舵机时换算为 tick。
@@ -696,27 +675,21 @@ namespace feetech_servo_ros2_control {
             LOG_ERROR_WITH_FUNC(__func__, "read 在 on_configure 之前被调用");
             return hardware_interface::return_type::ERROR;
         }
-        std::array<uint8_t, kFeedbackLength> feedback{};
-
         for (auto& joint : joints_) {
-            if (const auto result = protocol_->read_registers(joint.id, kRegisterPresentPosition, feedback);
-                !result) {
+            const auto state = protocol_->read_state(joint.id);
+            if (!state) {
                 LOG_ERROR("Reading joint '{}' (id={}) failed: {}", joint.name,
-                          static_cast<unsigned>(joint.id), result.error());
+                          static_cast<unsigned>(joint.id), state.error());
                 return hardware_interface::return_type::ERROR;
             }
 
-            const uint16_t position = decode_word(feedback.data());
-            const int speed = decode_sign_magnitude(decode_word(feedback.data() + 2), kSpeedSignBit);
-            const int load = decode_sign_magnitude(decode_word(feedback.data() + 4), kLoadSignBit);
-
-            joint.state_position = tick_to_radians(position, joint.range_deg);
-            joint.state_velocity = static_cast<double>(speed) * radians_per_tick(joint.range_deg);
-            joint.state_load = static_cast<double>(load) / 1000.0;
-            joint.state_voltage = static_cast<double>(feedback[6]) * 0.1;
-            joint.state_temperature = static_cast<double>(feedback[7]);
-            const int current = decode_sign_magnitude(decode_word(feedback.data() + 13), kCurrentSignBit);
-            joint.state_current = static_cast<double>(current) * kCurrentAmpsPerUnit;
+            joint.state_position = tick_to_radians(state.value().position_ticks, joint.range_deg);
+            joint.state_velocity = static_cast<double>(state.value().velocity_ticks_per_s) *
+                radians_per_tick(joint.range_deg);
+            joint.state_load = state.value().load;
+            joint.state_voltage = state.value().voltage;
+            joint.state_temperature = state.value().temperature;
+            joint.state_current = state.value().current;
         }
 
         return hardware_interface::return_type::OK;
