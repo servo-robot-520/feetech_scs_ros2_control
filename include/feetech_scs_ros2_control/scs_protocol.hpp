@@ -5,11 +5,11 @@
 #include <span>
 #include <vector>
 
-#include "feetech_scs_servo_ros2_control/result.hpp"
-#include "feetech_scs_servo_ros2_control/scs_serial_port.hpp"
-#include "feetech_scs_servo_ros2_control/scs_state.hpp"
+#include "feetech_scs_ros2_control/result.hpp"
+#include "feetech_scs_ros2_control/scs_serial_port.hpp"
+#include "feetech_scs_ros2_control/scs_state.hpp"
 
-namespace feetech_scs_servo_ros2_control {
+namespace feetech_scs_ros2_control {
 
     /// @brief 构造飞特协议数据包：
     ///   FF FF ID LENGTH INSTRUCTION PARAMS... CHECKSUM
@@ -129,4 +129,4 @@ namespace feetech_scs_servo_ros2_control {
         TraceHook trace_hook_;
     };
 
-} // namespace feetech_scs_servo_ros2_control
+} // namespace feetech_scs_ros2_control

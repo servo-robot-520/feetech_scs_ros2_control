@@ -4,10 +4,10 @@
 #include <span>
 #include <string>
 
-#include "feetech_scs_servo_ros2_control/result.hpp"
-#include "feetech_scs_servo_ros2_control/scs_register_map.hpp"
+#include "feetech_scs_ros2_control/result.hpp"
+#include "feetech_scs_ros2_control/scs_register_map.hpp"
 
-namespace feetech_scs_servo_ros2_control {
+namespace feetech_scs_ros2_control {
 
     /// @brief 舵机身份信息（寄存器 0x00..0x04）。
     struct ScsServoIdentity {
@@ -68,4 +68,4 @@ namespace feetech_scs_servo_ros2_control {
         return Expected<ScsServoState>(state);
     }
 
-} // namespace feetech_scs_servo_ros2_control
+} // namespace feetech_scs_ros2_control

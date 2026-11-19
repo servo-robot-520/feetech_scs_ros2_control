@@ -1,12 +1,12 @@
-#include "feetech_scs_servo_ros2_control/scs_protocol.hpp"
+#include "feetech_scs_ros2_control/scs_protocol.hpp"
 
 #include <array>
 #include <cstdio>
 #include <string>
 
-#include "feetech_scs_servo_ros2_control/scs_register_map.hpp"
+#include "feetech_scs_ros2_control/scs_register_map.hpp"
 
-namespace feetech_scs_servo_ros2_control {
+namespace feetech_scs_ros2_control {
     namespace {
 
         constexpr uint8_t kHeader = 0xFF;
@@ -311,4 +311,4 @@ namespace feetech_scs_servo_ros2_control {
         return Expected<std::vector<uint8_t>>(ids);
     }
 
-} // namespace feetech_scs_servo_ros2_control
+} // namespace feetech_scs_ros2_control

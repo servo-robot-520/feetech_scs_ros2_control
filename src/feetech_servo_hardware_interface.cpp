@@ -1,4 +1,4 @@
-#include "feetech_scs_servo_ros2_control/feetech_servo_hardware_interface.hpp"
+#include "feetech_scs_ros2_control/feetech_servo_hardware_interface.hpp"
 
 #include <hardware_interface/types/hardware_interface_type_values.hpp>
 #include <pluginlib/class_list_macros.hpp>
@@ -21,11 +21,11 @@
 #include <utility>
 #include <vector>
 
-#include "feetech_scs_servo_ros2_control/scs_params.hpp"
-#include "feetech_scs_servo_ros2_control/scs_register_map.hpp"
-#include "feetech_scs_servo_ros2_control/scs_state.hpp"
+#include "feetech_scs_ros2_control/scs_params.hpp"
+#include "feetech_scs_ros2_control/scs_register_map.hpp"
+#include "feetech_scs_ros2_control/scs_state.hpp"
 
-namespace feetech_scs_servo_ros2_control {
+namespace feetech_scs_ros2_control {
     namespace {
 
         /// @brief 解析整数并校验取值范围。
@@ -122,13 +122,13 @@ namespace feetech_scs_servo_ros2_control {
         // 进程级日志后端，由所有 common_cpp 使用方共享；默认 logger/node 名可被
         // `log.*` 硬件参数覆盖。
         auto logging_parameters = info_.hardware_parameters;
-        logging_parameters.try_emplace("log.logger_name", "feetech_scs_servo_ros2_control");
-        logging_parameters.try_emplace("log.node_name", "feetech_scs_servo_ros2_control");
+        logging_parameters.try_emplace("log.logger_name", "feetech_scs_ros2_control");
+        logging_parameters.try_emplace("log.node_name", "feetech_scs_ros2_control");
         try {
             logging::ros::RclcppLogHandler::init_from_map(logging_parameters);
         }
         catch (const std::exception& error) {
-            RCLCPP_ERROR(rclcpp::get_logger("feetech_scs_servo_ros2_control"),
+            RCLCPP_ERROR(rclcpp::get_logger("feetech_scs_ros2_control"),
                          "Failed to initialize common_cpp logging: %s", error.what());
             return hardware_interface::CallbackReturn::ERROR;
         }
@@ -786,7 +786,7 @@ namespace feetech_scs_servo_ros2_control {
             : hardware_interface::CallbackReturn::ERROR;
     }
 
-} // namespace feetech_scs_servo_ros2_control
+} // namespace feetech_scs_ros2_control
 
-PLUGINLIB_EXPORT_CLASS(feetech_scs_servo_ros2_control::FeetechScsHardwareInterface,
+PLUGINLIB_EXPORT_CLASS(feetech_scs_ros2_control::FeetechScsHardwareInterface,
                        hardware_interface::SystemInterface)

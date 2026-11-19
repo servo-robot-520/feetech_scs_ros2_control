@@ -6,10 +6,10 @@
 #include <span>
 #include <vector>
 
-#include "feetech_scs_servo_ros2_control/scs_protocol.hpp"
-#include "feetech_scs_servo_ros2_control/scs_register_map.hpp"
+#include "feetech_scs_ros2_control/scs_protocol.hpp"
+#include "feetech_scs_ros2_control/scs_register_map.hpp"
 
-namespace feetech_scs_servo_ros2_control {
+namespace feetech_scs_ros2_control {
     namespace {
 
         /// @brief 用初始化列表构造字节序列，便于与报文比较。
@@ -93,4 +93,4 @@ namespace feetech_scs_servo_ros2_control {
         }
 
     } // namespace
-} // namespace feetech_scs_servo_ros2_control
+} // namespace feetech_scs_ros2_control

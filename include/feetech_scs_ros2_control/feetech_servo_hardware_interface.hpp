@@ -11,11 +11,11 @@
 #include <hardware_interface/system_interface.hpp>
 #include <rclcpp_lifecycle/state.hpp>
 
-#include "feetech_scs_servo_ros2_control/joint_config.hpp"
-#include "feetech_scs_servo_ros2_control/scs_protocol.hpp"
-#include "feetech_scs_servo_ros2_control/scs_serial_port.hpp"
+#include "feetech_scs_ros2_control/joint_config.hpp"
+#include "feetech_scs_ros2_control/scs_protocol.hpp"
+#include "feetech_scs_ros2_control/scs_serial_port.hpp"
 
-namespace feetech_scs_servo_ros2_control {
+namespace feetech_scs_ros2_control {
 
     /// @brief 飞特 SCS 系列总线舵机的 ros2_control SystemInterface。
     ///
@@ -135,4 +135,4 @@ namespace feetech_scs_servo_ros2_control {
         std::unique_ptr<ScsProtocol> protocol_;
     };
 
-} // namespace feetech_scs_servo_ros2_control
+} // namespace feetech_scs_ros2_control

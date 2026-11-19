@@ -4,9 +4,9 @@
 #include <span>
 #include <string>
 
-#include "feetech_scs_servo_ros2_control/result.hpp"
+#include "feetech_scs_ros2_control/result.hpp"
 
-namespace feetech_scs_servo_ros2_control {
+namespace feetech_scs_ros2_control {
 
     /// @brief 飞特 TTL 总线舵机的 Linux 串口传输层（8N1、原始模式）。
     ///
@@ -51,4 +51,4 @@ namespace feetech_scs_servo_ros2_control {
         int fd_{-1};
     };
 
-} // namespace feetech_scs_servo_ros2_control
+} // namespace feetech_scs_ros2_control

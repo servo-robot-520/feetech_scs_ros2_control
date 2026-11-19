@@ -15,10 +15,10 @@
 #include <vector>
 
 #include "fake_scs_servo.hpp"
-#include "feetech_scs_servo_ros2_control/feetech_servo_hardware_interface.hpp"
-#include "feetech_scs_servo_ros2_control/scs_register_map.hpp"
+#include "feetech_scs_ros2_control/feetech_servo_hardware_interface.hpp"
+#include "feetech_scs_ros2_control/scs_register_map.hpp"
 
-namespace feetech_scs_servo_ros2_control {
+namespace feetech_scs_ros2_control {
     namespace {
 
         using test::FakeScsBus;
@@ -47,7 +47,7 @@ namespace feetech_scs_servo_ros2_control {
             hardware_interface::HardwareInfo info;
             info.name = "scs_bus";
             info.type = "system";
-            info.hardware_class_type = "feetech_scs_servo_ros2_control/FeetechScsHardwareInterface";
+            info.hardware_class_type = "feetech_scs_ros2_control/FeetechScsHardwareInterface";
             info.hardware_parameters["usb_port"] = port;
             info.hardware_parameters["baud_rate"] = "1000000";
             info.hardware_parameters["range_deg"] = "300";
@@ -364,4 +364,4 @@ namespace feetech_scs_servo_ros2_control {
         }
 
     } // namespace
-} // namespace feetech_scs_servo_ros2_control
+} // namespace feetech_scs_ros2_control

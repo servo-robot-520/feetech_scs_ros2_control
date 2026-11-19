@@ -4,9 +4,9 @@
 #include <string>
 #include <unordered_map>
 
-#include "feetech_scs_servo_ros2_control/result.hpp"
+#include "feetech_scs_ros2_control/result.hpp"
 
-namespace feetech_scs_servo_ros2_control {
+namespace feetech_scs_ros2_control {
 
     /// @brief 单个关节的参数集合：参数名 -> 字符串值。
     using JointParams = std::unordered_map<std::string, std::string>;
@@ -36,4 +36,4 @@ namespace feetech_scs_servo_ros2_control {
     JointParams merge_joint_params(const JointParams& yaml_params,
                                    const JointParams& urdf_params);
 
-} // namespace feetech_scs_servo_ros2_control
+} // namespace feetech_scs_ros2_control

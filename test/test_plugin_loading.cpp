@@ -13,7 +13,7 @@ TEST(PluginLoading, LoadsFeetechScsHardwareInterface) {
     pluginlib::UniquePtr<hardware_interface::SystemInterface> instance;
     try {
         instance = loader.createUniqueInstance(
-            "feetech_scs_servo_ros2_control/FeetechScsHardwareInterface");
+            "feetech_scs_ros2_control/FeetechScsHardwareInterface");
     }
     catch (const std::exception& error) {
         FAIL() << error.what();

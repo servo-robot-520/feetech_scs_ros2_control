@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(feetech_scs_servo_ros2_control)
+project(feetech_scs_ros2_control)
 
 option(BUILD_TESTING "构建单元测试" ON)
 
@@ -39,12 +39,12 @@ add_executable(bench_scs_read tools/bench_scs_read.cpp)
 target_link_libraries(bench_scs_read PRIVATE feetech_scs_driver)
 
 # ros2_control 插件。
-add_library(feetech_scs_servo_ros2_control SHARED src/feetech_servo_hardware_interface.cpp)
+add_library(feetech_scs_ros2_control SHARED src/feetech_servo_hardware_interface.cpp)
 target_include_directories(
-        feetech_scs_servo_ros2_control PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        feetech_scs_ros2_control PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>)
 target_link_libraries(
-        feetech_scs_servo_ros2_control PUBLIC feetech_scs_driver
+        feetech_scs_ros2_control PUBLIC feetech_scs_driver
         hardware_interface::hardware_interface
         pluginlib::pluginlib rclcpp::rclcpp
         rclcpp_lifecycle::rclcpp_lifecycle)
@@ -55,34 +55,34 @@ if (ROS2_WS_SOURCE_BUILD)
             OR NOT TARGET common_cpp_ros_logging)
         message(FATAL_ERROR
                 "源码聚合构建需要 common_cpp 的 target。"
-                "请在顶层工作区中先添加 common_cpp，再添加 feetech_scs_servo_ros2_control。")
+                "请在顶层工作区中先添加 common_cpp，再添加 feetech_scs_ros2_control。")
     endif ()
     target_link_libraries(
-            feetech_scs_servo_ros2_control PUBLIC common_cpp_logging_interface
+            feetech_scs_ros2_control PUBLIC common_cpp_logging_interface
             common_cpp_logging common_cpp_ros_logging)
 else ()
     target_link_libraries(
-            feetech_scs_servo_ros2_control PUBLIC
+            feetech_scs_ros2_control PUBLIC
             common_cpp::common_cpp_logging_interface
             common_cpp::common_cpp_logging
             common_cpp::common_cpp_ros_logging)
 endif ()
 
 pluginlib_export_plugin_description_file(
-        hardware_interface feetech_scs_servo_ros2_control_plugin_description.xml)
+        hardware_interface feetech_scs_ros2_control_plugin_description.xml)
 
 install(
-        TARGETS feetech_scs_driver feetech_scs_servo_ros2_control
-        EXPORT feetech_scs_servo_ros2_controlTargets
+        TARGETS feetech_scs_driver feetech_scs_ros2_control
+        EXPORT feetech_scs_ros2_controlTargets
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
         RUNTIME DESTINATION bin)
 install(DIRECTORY include/ DESTINATION include)
 install(
-        FILES feetech_scs_servo_ros2_control_plugin_description.xml
+        FILES feetech_scs_ros2_control_plugin_description.xml
         DESTINATION share/${PROJECT_NAME})
 
-ament_export_targets(feetech_scs_servo_ros2_controlTargets HAS_LIBRARY_TARGET)
+ament_export_targets(feetech_scs_ros2_controlTargets HAS_LIBRARY_TARGET)
 ament_export_dependencies(rclcpp rclcpp_lifecycle hardware_interface pluginlib
         common_cpp yaml-cpp)
 
@@ -102,12 +102,12 @@ if (BUILD_TESTING)
 
     ament_add_gtest(test_hardware_interface test/test_hardware_interface.cpp)
     target_include_directories(test_hardware_interface PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test)
-    target_link_libraries(test_hardware_interface feetech_scs_servo_ros2_control)
+    target_link_libraries(test_hardware_interface feetech_scs_ros2_control)
 
     # 聚合构建中所有包共享同一个 CMake target 命名空间；使用包名前缀避免与
     # mpu6500_ros2_control 的同名测试 target 冲突。
     ament_add_gtest(test_feetech_plugin_loading test/test_plugin_loading.cpp)
-    target_link_libraries(test_feetech_plugin_loading feetech_scs_servo_ros2_control
+    target_link_libraries(test_feetech_plugin_loading feetech_scs_ros2_control
             pluginlib::pluginlib)
 endif ()
 

@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
-<library path="feetech_scs_servo_ros2_control">
+<library path="feetech_scs_ros2_control">
   <class
-    name="feetech_scs_servo_ros2_control/FeetechScsHardwareInterface"
-    type="feetech_scs_servo_ros2_control::FeetechScsHardwareInterface"
+    name="feetech_scs_ros2_control/FeetechScsHardwareInterface"
+    type="feetech_scs_ros2_control::FeetechScsHardwareInterface"
     base_class_type="hardware_interface::SystemInterface"
   >
     <description>ros2_control SystemInterface for Feetech SC215/SC225 (SCS series) bus servos</description>

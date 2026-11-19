@@ -25,9 +25,9 @@
 #include <string_view>
 #include <vector>
 
-#include "feetech_scs_servo_ros2_control/scs_protocol.hpp"
-#include "feetech_scs_servo_ros2_control/scs_register_map.hpp"
-#include "feetech_scs_servo_ros2_control/scs_serial_port.hpp"
+#include "feetech_scs_ros2_control/scs_protocol.hpp"
+#include "feetech_scs_ros2_control/scs_register_map.hpp"
+#include "feetech_scs_ros2_control/scs_serial_port.hpp"
 
 namespace {
 
@@ -172,7 +172,7 @@ namespace {
         return stats;
     }
 
-    std::vector<uint8_t> scan_ids(const feetech_scs_servo_ros2_control::ScsProtocol& protocol) {
+    std::vector<uint8_t> scan_ids(const feetech_scs_ros2_control::ScsProtocol& protocol) {
         std::vector<uint8_t> found;
         for (int id = 0; id <= 253; ++id) {
             if (protocol.ping(static_cast<uint8_t>(id))) {
@@ -185,7 +185,7 @@ namespace {
 } // namespace
 
 int main(int argc, char** argv) {
-    using namespace feetech_scs_servo_ros2_control;
+    using namespace feetech_scs_ros2_control;
     using Clock = std::chrono::steady_clock;
 
     Options options;

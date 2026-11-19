@@ -1,4 +1,4 @@
-# feetech_scs_servo_ros2_control
+# feetech_scs_ros2_control
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
@@ -16,8 +16,8 @@ The driver speaks the SCSCL protocol directly over a POSIX serial port:
 ## Build
 
 ```bash
-colcon build --packages-select feetech_scs_servo_ros2_control
-colcon test  --packages-select feetech_scs_servo_ros2_control
+colcon build --packages-select feetech_scs_ros2_control
+colcon test  --packages-select feetech_scs_ros2_control
 ```
 
 ### Plain CMake / CLion
@@ -28,7 +28,7 @@ is sourced. For a standalone build, `common_cpp` must be built/installed first
 
 ```bash
 source /opt/ros/humble/setup.bash
-cmake -S src/feetech_scs_servo_ros2_control -B build-pkg \
+cmake -S src/feetech_scs_ros2_control -B build-pkg \
   -DCMAKE_CXX_COMPILER=g++-13 \
   -DCMAKE_PREFIX_PATH="$PWD/install/common_cpp:/opt/ros/humble"
 cmake --build build-pkg -j
@@ -54,7 +54,7 @@ sudo usermod -aG dialout "$USER"
 ```xml
 <ros2_control name="feetech_scs" type="system">
   <hardware>
-    <plugin>feetech_scs_servo_ros2_control/FeetechScsHardwareInterface</plugin>
+    <plugin>feetech_scs_ros2_control/FeetechScsHardwareInterface</plugin>
     <param name="usb_port">/dev/ttyUSB0</param>
     <param name="baud_rate">1000000</param>
     <param name="joint_config_file">$(find my_robot_bringup)/config/scs_joints.yaml</param>
@@ -122,8 +122,8 @@ parameters on `on_init`:
 | `log.log_level` | `info` | `trace`, `debug`, `info`, `warn`, `error`, `critical`, `off`. |
 | `log.log_path` | `./log` | Directory for `log_<name>_<timestamp>.log`. |
 | `log.async` | `true` | Asynchronous spdlog queue. |
-| `log.logger_name` | `feetech_scs_servo_ros2_control` | Logger name, also used by the ROS adapter. |
-| `log.node_name` | `feetech_scs_servo_ros2_control` | Prefix shown in log lines. |
+| `log.logger_name` | `feetech_scs_ros2_control` | Logger name, also used by the ROS adapter. |
+| `log.node_name` | `feetech_scs_ros2_control` | Prefix shown in log lines. |
 | `log.filter.black` | empty | Comma-separated filter rules (`start-`, `end-`, `inc-`, `equal-`). |
 
 ### Joint parameters

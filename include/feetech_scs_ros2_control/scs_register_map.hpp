@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace feetech_scs_servo_ros2_control {
+namespace feetech_scs_ros2_control {
 
     // SCSCL 内存表（飞特“SCS 电位器版”控制表）。
     // 地址为字段起始地址；多字节字段高字节在前，与 SCServo_Linux 的 SCSCL（End = 1）一致。
@@ -158,4 +158,4 @@ namespace feetech_scs_servo_ros2_control {
         return static_cast<uint16_t>(std::clamp(tick, lower, upper));
     }
 
-} // namespace feetech_scs_servo_ros2_control
+} // namespace feetech_scs_ros2_control
