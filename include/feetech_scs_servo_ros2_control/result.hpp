@@ -3,7 +3,7 @@
 #include <string>
 #include <utility>
 
-namespace feetech_servo_ros2_control {
+namespace feetech_scs_servo_ros2_control {
 
     /// @brief 极简结果类型：只表示成功，或在失败时携带一条错误信息。
     class Result {
@@ -88,4 +88,4 @@ namespace feetech_servo_ros2_control {
         bool has_value_{true};
     };
 
-} // namespace feetech_servo_ros2_control
+} // namespace feetech_scs_servo_ros2_control

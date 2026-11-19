@@ -1,6 +1,6 @@
 // 读取 SCS 舵机反馈的耗时基准。
 //
-// 复刻 FeetechServoHardwareInterface::read() 的线上行为：对每个 id 顺序执行一次
+// 复刻 FeetechScsHardwareInterface::read() 的线上行为：对每个 id 顺序执行一次
 // READ 0x38..0x46（15 字节），不做 SYNC READ（SCS 协议没有定义）。只读，不使能力矩，
 // 不写 EEPROM，因此在机器人上运行不会让关节动作。
 //
@@ -25,9 +25,9 @@
 #include <string_view>
 #include <vector>
 
-#include "feetech_servo_ros2_control/scs_protocol.hpp"
-#include "feetech_servo_ros2_control/scs_register_map.hpp"
-#include "feetech_servo_ros2_control/scs_serial_port.hpp"
+#include "feetech_scs_servo_ros2_control/scs_protocol.hpp"
+#include "feetech_scs_servo_ros2_control/scs_register_map.hpp"
+#include "feetech_scs_servo_ros2_control/scs_serial_port.hpp"
 
 namespace {
 
@@ -172,7 +172,7 @@ namespace {
         return stats;
     }
 
-    std::vector<uint8_t> scan_ids(const feetech_servo_ros2_control::ScsProtocol& protocol) {
+    std::vector<uint8_t> scan_ids(const feetech_scs_servo_ros2_control::ScsProtocol& protocol) {
         std::vector<uint8_t> found;
         for (int id = 0; id <= 253; ++id) {
             if (protocol.ping(static_cast<uint8_t>(id))) {
@@ -185,7 +185,7 @@ namespace {
 } // namespace
 
 int main(int argc, char** argv) {
-    using namespace feetech_servo_ros2_control;
+    using namespace feetech_scs_servo_ros2_control;
     using Clock = std::chrono::steady_clock;
 
     Options options;

@@ -1,4 +1,4 @@
-#include "feetech_servo_ros2_control/scs_serial_port.hpp"
+#include "feetech_scs_servo_ros2_control/scs_serial_port.hpp"
 
 #include <fcntl.h>
 #include <poll.h>
@@ -10,7 +10,7 @@
 #include <cerrno>
 #include <cstring>
 
-namespace feetech_servo_ros2_control {
+namespace feetech_scs_servo_ros2_control {
     namespace {
 
         /// @brief 拼接带 errno 描述的错误信息。
@@ -164,4 +164,4 @@ namespace feetech_servo_ros2_control {
         }
     }
 
-} // namespace feetech_servo_ros2_control
+} // namespace feetech_scs_servo_ros2_control

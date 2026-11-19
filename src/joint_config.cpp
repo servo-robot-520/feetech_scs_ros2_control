@@ -1,4 +1,4 @@
-#include "feetech_servo_ros2_control/joint_config.hpp"
+#include "feetech_scs_servo_ros2_control/joint_config.hpp"
 
 #include <yaml-cpp/yaml.h>
 
@@ -6,7 +6,7 @@
 #include <fstream>
 #include <string>
 
-namespace feetech_servo_ros2_control {
+namespace feetech_scs_servo_ros2_control {
 
     Result load_joint_config(const std::string& file_path, JointConfigFile* const config) {
         if (config == nullptr) {
@@ -88,4 +88,4 @@ namespace feetech_servo_ros2_control {
         return merged;
     }
 
-} // namespace feetech_servo_ros2_control
+} // namespace feetech_scs_servo_ros2_control

@@ -6,12 +6,12 @@
 #include <vector>
 
 #include "fake_scs_servo.hpp"
-#include "feetech_servo_ros2_control/scs_protocol.hpp"
-#include "feetech_servo_ros2_control/scs_register_map.hpp"
-#include "feetech_servo_ros2_control/scs_serial_port.hpp"
-#include "feetech_servo_ros2_control/scs_state.hpp"
+#include "feetech_scs_servo_ros2_control/scs_protocol.hpp"
+#include "feetech_scs_servo_ros2_control/scs_register_map.hpp"
+#include "feetech_scs_servo_ros2_control/scs_serial_port.hpp"
+#include "feetech_scs_servo_ros2_control/scs_state.hpp"
 
-namespace feetech_servo_ros2_control {
+namespace feetech_scs_servo_ros2_control {
     namespace {
 
         using test::FakeScsBus;
@@ -155,4 +155,4 @@ namespace feetech_servo_ros2_control {
         }
 
     } // namespace
-} // namespace feetech_servo_ros2_control
+} // namespace feetech_scs_servo_ros2_control

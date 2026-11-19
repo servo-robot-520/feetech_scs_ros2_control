@@ -6,14 +6,14 @@
 #include <pluginlib/class_loader.hpp>
 
 
-TEST(PluginLoading, LoadsFeetechServoHardwareInterface) {
+TEST(PluginLoading, LoadsFeetechScsHardwareInterface) {
     pluginlib::ClassLoader<hardware_interface::SystemInterface> loader(
         "hardware_interface", "hardware_interface::SystemInterface");
 
     pluginlib::UniquePtr<hardware_interface::SystemInterface> instance;
     try {
         instance = loader.createUniqueInstance(
-            "feetech_servo_ros2_control/FeetechServoHardwareInterface");
+            "feetech_scs_servo_ros2_control/FeetechScsHardwareInterface");
     }
     catch (const std::exception& error) {
         FAIL() << error.what();

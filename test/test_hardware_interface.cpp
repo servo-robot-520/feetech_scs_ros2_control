@@ -15,10 +15,10 @@
 #include <vector>
 
 #include "fake_scs_servo.hpp"
-#include "feetech_servo_ros2_control/feetech_servo_hardware_interface.hpp"
-#include "feetech_servo_ros2_control/scs_register_map.hpp"
+#include "feetech_scs_servo_ros2_control/feetech_servo_hardware_interface.hpp"
+#include "feetech_scs_servo_ros2_control/scs_register_map.hpp"
 
-namespace feetech_servo_ros2_control {
+namespace feetech_scs_servo_ros2_control {
     namespace {
 
         using test::FakeScsBus;
@@ -47,7 +47,7 @@ namespace feetech_servo_ros2_control {
             hardware_interface::HardwareInfo info;
             info.name = "scs_bus";
             info.type = "system";
-            info.hardware_class_type = "feetech_servo_ros2_control/FeetechServoHardwareInterface";
+            info.hardware_class_type = "feetech_scs_servo_ros2_control/FeetechScsHardwareInterface";
             info.hardware_parameters["usb_port"] = port;
             info.hardware_parameters["baud_rate"] = "1000000";
             info.hardware_parameters["range_deg"] = "300";
@@ -63,7 +63,7 @@ namespace feetech_servo_ros2_control {
         }
 
         /// @brief 依次执行 on_init 与 on_configure，二者都成功时返回 true。
-        bool init_and_configure(FeetechServoHardwareInterface& hardware,
+        bool init_and_configure(FeetechScsHardwareInterface& hardware,
                                 const hardware_interface::HardwareInfo& info) {
             if (hardware.on_init(info) != hardware_interface::CallbackReturn::SUCCESS) {
                 return false;
@@ -87,7 +87,7 @@ namespace feetech_servo_ros2_control {
                 joint.parameters["p_coefficient"] = "20";
             }
 
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             ASSERT_TRUE(init_and_configure(hardware, info));
 
             EXPECT_EQ(bus_->register_value(1, kRegisterPCoefficient), 20);
@@ -99,7 +99,7 @@ namespace feetech_servo_ros2_control {
 
         TEST_F(HardwareInterfaceTest, ExportsDeclaredInterfaces) {
             auto info = make_hardware_info(bus_->slave_path(), {1, 2});
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             ASSERT_EQ(hardware.on_init(info), hardware_interface::CallbackReturn::SUCCESS);
 
             const auto states = hardware.export_state_interfaces();
@@ -114,7 +114,7 @@ namespace feetech_servo_ros2_control {
 
         TEST_F(HardwareInterfaceTest, FullLifecycle) {
             auto info = make_hardware_info(bus_->slave_path(), {1, 2});
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             ASSERT_TRUE(init_and_configure(hardware, info));
 
             auto states = hardware.export_state_interfaces();
@@ -158,7 +158,7 @@ namespace feetech_servo_ros2_control {
             info.joints[0].parameters["range_min"] = "600";
             info.joints[0].parameters["range_max"] = "700";
 
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             ASSERT_TRUE(init_and_configure(hardware, info));
             EXPECT_EQ(bus_->register_value(1, kRegisterMinAngleLimit), 0x02);
             EXPECT_EQ(bus_->register_value(1, kRegisterMinAngleLimit + 1), 0x58);
@@ -197,7 +197,7 @@ namespace feetech_servo_ros2_control {
             info.joints[0].parameters["p_coefficient"] = "20";
             info.hardware_parameters["joint_config_file"] = yaml_path.string();
 
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             ASSERT_TRUE(init_and_configure(hardware, info));
             EXPECT_EQ(bus_->register_value(1, kRegisterPCoefficient), 33);
             EXPECT_EQ(bus_->register_value(1, kRegisterMaxAngleLimit), 0x03);
@@ -219,7 +219,7 @@ namespace feetech_servo_ros2_control {
             info.hardware_parameters.erase("usb_port");
             info.hardware_parameters["joint_config_file"] = yaml_path.string();
 
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             ASSERT_TRUE(init_and_configure(hardware, info));
             EXPECT_EQ(bus_->register_value(1, kRegisterId), 1);
 
@@ -238,7 +238,7 @@ namespace feetech_servo_ros2_control {
             params["protection_time"] = "50";
             params["overload_torque"] = "70";
 
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             ASSERT_TRUE(init_and_configure(hardware, info));
 
             EXPECT_EQ(bus_->register_value(1, kRegisterMaxTemperature), 70);
@@ -256,7 +256,7 @@ namespace feetech_servo_ros2_control {
             auto info = make_hardware_info(bus_->slave_path(), {1});
             info.joints[0].parameters["range_min"] = "1024";
 
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             EXPECT_EQ(hardware.on_init(info), hardware_interface::CallbackReturn::ERROR);
         }
 
@@ -265,7 +265,7 @@ namespace feetech_servo_ros2_control {
             info.joints[0].parameters["range_min"] = "700";
             info.joints[0].parameters["range_max"] = "600";
 
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             EXPECT_EQ(hardware.on_init(info), hardware_interface::CallbackReturn::ERROR);
         }
 
@@ -274,7 +274,7 @@ namespace feetech_servo_ros2_control {
             info.joints[0].parameters["min_input_voltage"] = "100";
             info.joints[0].parameters["max_input_voltage"] = "90";
 
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             EXPECT_EQ(hardware.on_init(info), hardware_interface::CallbackReturn::ERROR);
             EXPECT_EQ(bus_->register_value(1, kRegisterEepromLock), 1);
             EXPECT_EQ(bus_->register_value(1, kRegisterMinInputVoltage), 45);
@@ -285,7 +285,7 @@ namespace feetech_servo_ros2_control {
             auto info = make_hardware_info(bus_->slave_path(), {1});
             info.joints[0].parameters["max_torque"] = "2000";
 
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             EXPECT_EQ(hardware.on_init(info), hardware_interface::CallbackReturn::ERROR);
         }
 
@@ -293,7 +293,7 @@ namespace feetech_servo_ros2_control {
             // 模拟总线只提供 id 1 和 2。
             auto info = make_hardware_info(bus_->slave_path(), {3});
 
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             ASSERT_EQ(hardware.on_init(info), hardware_interface::CallbackReturn::SUCCESS);
             EXPECT_EQ(hardware.on_configure(rclcpp_lifecycle::State()),
                       hardware_interface::CallbackReturn::ERROR);
@@ -302,7 +302,7 @@ namespace feetech_servo_ros2_control {
         TEST_F(HardwareInterfaceTest, InitDoesNotAccessHardware) {
             auto info = make_hardware_info("/dev/does-not-exist", {1});
 
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             EXPECT_EQ(hardware.on_init(info), hardware_interface::CallbackReturn::SUCCESS);
             EXPECT_EQ(hardware.on_configure(rclcpp_lifecycle::State()),
                       hardware_interface::CallbackReturn::ERROR);
@@ -311,7 +311,7 @@ namespace feetech_servo_ros2_control {
         TEST_F(HardwareInterfaceTest, ReconfiguresAfterCleanup) {
             auto info = make_hardware_info(bus_->slave_path(), {1});
 
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             ASSERT_TRUE(init_and_configure(hardware, info));
             ASSERT_EQ(hardware.on_cleanup(rclcpp_lifecycle::State()),
                       hardware_interface::CallbackReturn::SUCCESS);
@@ -323,7 +323,7 @@ namespace feetech_servo_ros2_control {
             auto info = make_hardware_info(bus_->slave_path(), {1});
             info.joints[0].command_interfaces[0].name = hardware_interface::HW_IF_VELOCITY;
 
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             EXPECT_EQ(hardware.on_init(info), hardware_interface::CallbackReturn::ERROR);
         }
 
@@ -331,7 +331,7 @@ namespace feetech_servo_ros2_control {
             auto info = make_hardware_info(bus_->slave_path(), {1});
             info.joints[0].parameters["i_coefficient"] = "0";
 
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             EXPECT_EQ(hardware.on_init(info), hardware_interface::CallbackReturn::ERROR);
         }
 
@@ -339,7 +339,7 @@ namespace feetech_servo_ros2_control {
             auto info = make_hardware_info(bus_->slave_path(), {1});
             info.joints.push_back(make_joint(1));
 
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             EXPECT_EQ(hardware.on_init(info), hardware_interface::CallbackReturn::ERROR);
         }
 
@@ -348,7 +348,7 @@ namespace feetech_servo_ros2_control {
             auto info = make_hardware_info(bus.slave_path(), {1});
             info.hardware_parameters["strict_model_check"] = "true";
 
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             EXPECT_TRUE(init_and_configure(hardware, info));
         }
 
@@ -357,11 +357,11 @@ namespace feetech_servo_ros2_control {
             auto info = make_hardware_info(bus.slave_path(), {1});
             info.hardware_parameters["strict_model_check"] = "true";
 
-            FeetechServoHardwareInterface hardware;
+            FeetechScsHardwareInterface hardware;
             ASSERT_EQ(hardware.on_init(info), hardware_interface::CallbackReturn::SUCCESS);
             EXPECT_EQ(hardware.on_configure(rclcpp_lifecycle::State()),
                       hardware_interface::CallbackReturn::ERROR);
         }
 
     } // namespace
-} // namespace feetech_servo_ros2_control
+} // namespace feetech_scs_servo_ros2_control

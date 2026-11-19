@@ -11,17 +11,17 @@
 #include <hardware_interface/system_interface.hpp>
 #include <rclcpp_lifecycle/state.hpp>
 
-#include "feetech_servo_ros2_control/joint_config.hpp"
-#include "feetech_servo_ros2_control/scs_protocol.hpp"
-#include "feetech_servo_ros2_control/scs_serial_port.hpp"
+#include "feetech_scs_servo_ros2_control/joint_config.hpp"
+#include "feetech_scs_servo_ros2_control/scs_protocol.hpp"
+#include "feetech_scs_servo_ros2_control/scs_serial_port.hpp"
 
-namespace feetech_servo_ros2_control {
+namespace feetech_scs_servo_ros2_control {
 
     /// @brief 飞特 SCS 系列总线舵机的 ros2_control SystemInterface。
     ///
     /// 支持的型号：SC215（型号 0x0523）与 SC225（型号 0x0923）。
     /// 一个实例管理一条串口总线，每个关节对应一个舵机 id。
-    class FeetechServoHardwareInterface : public hardware_interface::SystemInterface {
+    class FeetechScsHardwareInterface : public hardware_interface::SystemInterface {
     public:
         /// @brief 解析硬件与关节参数并校验配置，不访问硬件。
         /// @param info ros2_control 从 URDF 解析出的硬件信息。
@@ -135,4 +135,4 @@ namespace feetech_servo_ros2_control {
         std::unique_ptr<ScsProtocol> protocol_;
     };
 
-} // namespace feetech_servo_ros2_control
+} // namespace feetech_scs_servo_ros2_control

@@ -1,4 +1,4 @@
-# feetech_servo_ros2_control
+# feetech_scs_servo_ros2_control
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
@@ -16,8 +16,8 @@
 ## 构建
 
 ```bash
-colcon build --packages-select feetech_servo_ros2_control
-colcon test  --packages-select feetech_servo_ros2_control
+colcon build --packages-select feetech_scs_servo_ros2_control
+colcon test  --packages-select feetech_scs_servo_ros2_control
 ```
 
 ### 普通 CMake / CLion
@@ -27,7 +27,7 @@ colcon test  --packages-select feetech_servo_ros2_control
 
 ```bash
 source /opt/ros/humble/setup.bash
-cmake -S src/feetech_servo_ros2_control -B build-pkg \
+cmake -S src/feetech_scs_servo_ros2_control -B build-pkg \
   -DCMAKE_CXX_COMPILER=g++-13 \
   -DCMAKE_PREFIX_PATH="$PWD/install/common_cpp:/opt/ros/humble"
 cmake --build build-pkg -j
@@ -51,7 +51,7 @@ sudo usermod -aG dialout "$USER"
 ```xml
 <ros2_control name="feetech_scs" type="system">
   <hardware>
-    <plugin>feetech_servo_ros2_control/FeetechServoHardwareInterface</plugin>
+    <plugin>feetech_scs_servo_ros2_control/FeetechScsHardwareInterface</plugin>
     <param name="usb_port">/dev/ttyUSB0</param>
     <param name="baud_rate">1000000</param>
     <param name="joint_config_file">$(find my_robot_bringup)/config/scs_joints.yaml</param>
@@ -113,8 +113,8 @@ sudo usermod -aG dialout "$USER"
 | `log.log_level` | `info` | `trace`、`debug`、`info`、`warn`、`error`、`critical`、`off`。 |
 | `log.log_path` | `./log` | 日志目录，文件名为 `log_<name>_<timestamp>.log`。 |
 | `log.async` | `true` | 使用 spdlog 异步队列。 |
-| `log.logger_name` | `feetech_servo_ros2_control` | 日志器名称，同时用于 ROS 适配器。 |
-| `log.node_name` | `feetech_servo_ros2_control` | 日志行中显示的前缀。 |
+| `log.logger_name` | `feetech_scs_servo_ros2_control` | 日志器名称，同时用于 ROS 适配器。 |
+| `log.node_name` | `feetech_scs_servo_ros2_control` | 日志行中显示的前缀。 |
 | `log.filter.black` | 空 | 逗号分隔的过滤规则（`start-`、`end-`、`inc-`、`equal-`）。 |
 
 ### 关节参数
@@ -149,7 +149,7 @@ EEPROM 参数仅在舵机当前值不同时写入，写入前关闭扭矩并解�
 
 ## 协议库
 
-`feetech_servo_driver` 库不依赖 ROS，可供独立工具链接。除传输层
+`feetech_scs_driver` 库不依赖 ROS，可供独立工具链接。除传输层
 （`ScsSerialPort`）与 READ / WRITE / SYNC WRITE 客户端（`ScsProtocol`）外，还提供：
 
 - `ScsProtocol::scan()` —— 总线扫描（PING 遍历）。

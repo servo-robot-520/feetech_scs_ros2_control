@@ -4,9 +4,9 @@
 #include <cstdint>
 #include <string_view>
 
-#include "feetech_servo_ros2_control/scs_register_map.hpp"
+#include "feetech_scs_servo_ros2_control/scs_register_map.hpp"
 
-namespace feetech_servo_ros2_control {
+namespace feetech_scs_servo_ros2_control {
 
     /// @brief 参数存储区/访问方式。
     enum class ParamAccess {
@@ -276,4 +276,4 @@ namespace feetech_servo_ros2_control {
         return nullptr;
     }
 
-} // namespace feetech_servo_ros2_control
+} // namespace feetech_scs_servo_ros2_control

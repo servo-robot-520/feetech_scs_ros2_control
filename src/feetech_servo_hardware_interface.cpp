@@ -1,4 +1,4 @@
-#include "feetech_servo_ros2_control/feetech_servo_hardware_interface.hpp"
+#include "feetech_scs_servo_ros2_control/feetech_servo_hardware_interface.hpp"
 
 #include <hardware_interface/types/hardware_interface_type_values.hpp>
 #include <pluginlib/class_list_macros.hpp>
@@ -21,11 +21,11 @@
 #include <utility>
 #include <vector>
 
-#include "feetech_servo_ros2_control/scs_params.hpp"
-#include "feetech_servo_ros2_control/scs_register_map.hpp"
-#include "feetech_servo_ros2_control/scs_state.hpp"
+#include "feetech_scs_servo_ros2_control/scs_params.hpp"
+#include "feetech_scs_servo_ros2_control/scs_register_map.hpp"
+#include "feetech_scs_servo_ros2_control/scs_state.hpp"
 
-namespace feetech_servo_ros2_control {
+namespace feetech_scs_servo_ros2_control {
     namespace {
 
         /// @brief 解析整数并校验取值范围。
@@ -112,7 +112,7 @@ namespace feetech_servo_ros2_control {
 
     } // namespace
 
-    hardware_interface::CallbackReturn FeetechServoHardwareInterface::on_init(
+    hardware_interface::CallbackReturn FeetechScsHardwareInterface::on_init(
         const hardware_interface::HardwareInfo& info) {
         if (hardware_interface::SystemInterface::on_init(info) !=
             hardware_interface::CallbackReturn::SUCCESS) {
@@ -122,13 +122,13 @@ namespace feetech_servo_ros2_control {
         // 进程级日志后端，由所有 common_cpp 使用方共享；默认 logger/node 名可被
         // `log.*` 硬件参数覆盖。
         auto logging_parameters = info_.hardware_parameters;
-        logging_parameters.try_emplace("log.logger_name", "feetech_servo_ros2_control");
-        logging_parameters.try_emplace("log.node_name", "feetech_servo_ros2_control");
+        logging_parameters.try_emplace("log.logger_name", "feetech_scs_servo_ros2_control");
+        logging_parameters.try_emplace("log.node_name", "feetech_scs_servo_ros2_control");
         try {
             logging::ros::RclcppLogHandler::init_from_map(logging_parameters);
         }
         catch (const std::exception& error) {
-            RCLCPP_ERROR(rclcpp::get_logger("feetech_servo_ros2_control"),
+            RCLCPP_ERROR(rclcpp::get_logger("feetech_scs_servo_ros2_control"),
                          "Failed to initialize common_cpp logging: %s", error.what());
             return hardware_interface::CallbackReturn::ERROR;
         }
@@ -166,7 +166,7 @@ namespace feetech_servo_ros2_control {
         return hardware_interface::CallbackReturn::SUCCESS;
     }
 
-    hardware_interface::CallbackReturn FeetechServoHardwareInterface::on_configure(
+    hardware_interface::CallbackReturn FeetechScsHardwareInterface::on_configure(
         const rclcpp_lifecycle::State& /* previous_state */) {
         const char* caller = __func__;
         auto fail = [caller](const std::string& message) {
@@ -205,7 +205,7 @@ namespace feetech_servo_ros2_control {
         return hardware_interface::CallbackReturn::SUCCESS;
     }
 
-    hardware_interface::CallbackReturn FeetechServoHardwareInterface::on_cleanup(
+    hardware_interface::CallbackReturn FeetechScsHardwareInterface::on_cleanup(
         const rclcpp_lifecycle::State& /* previous_state */) {
         const char* caller = __func__;
         bool success = true;
@@ -230,17 +230,17 @@ namespace feetech_servo_ros2_control {
             : hardware_interface::CallbackReturn::ERROR;
     }
 
-    hardware_interface::CallbackReturn FeetechServoHardwareInterface::on_shutdown(
+    hardware_interface::CallbackReturn FeetechScsHardwareInterface::on_shutdown(
         const rclcpp_lifecycle::State& previous_state) {
         return on_cleanup(previous_state);
     }
 
-    void FeetechServoHardwareInterface::release_resources() {
+    void FeetechScsHardwareInterface::release_resources() {
         protocol_.reset();
         serial_port_.reset();
     }
 
-    hardware_interface::CallbackReturn FeetechServoHardwareInterface::parse_options() {
+    hardware_interface::CallbackReturn FeetechScsHardwareInterface::parse_options() {
         const char* caller = __func__;
         auto fail = [caller](const std::string& message) {
             LOG_ERROR_WITH_FUNC(caller, "{}", message);
@@ -316,7 +316,7 @@ namespace feetech_servo_ros2_control {
         return hardware_interface::CallbackReturn::SUCCESS;
     }
 
-    hardware_interface::CallbackReturn FeetechServoHardwareInterface::build_joints() {
+    hardware_interface::CallbackReturn FeetechScsHardwareInterface::build_joints() {
         const char* caller = __func__;
         auto fail = [caller](const std::string& message) {
             LOG_ERROR_WITH_FUNC(caller, "{}", message);
@@ -460,7 +460,7 @@ namespace feetech_servo_ros2_control {
         return hardware_interface::CallbackReturn::SUCCESS;
     }
 
-    Result FeetechServoHardwareInterface::verify_servos() const {
+    Result FeetechScsHardwareInterface::verify_servos() const {
         for (const auto& joint : joints_) {
             if (const auto result = protocol_->ping(joint.id); !result) {
                 return Result::failure("Configured servo id " + std::to_string(joint.id) + " (joint '" +
@@ -504,7 +504,7 @@ namespace feetech_servo_ros2_control {
         return Result::success();
     }
 
-    Result FeetechServoHardwareInterface::build_register_settings(Joint& joint) {
+    Result FeetechScsHardwareInterface::build_register_settings(Joint& joint) {
         // 所有 EEPROM 参数都在 on_init 阶段完成解析与范围校验，on_configure 只负责写入。
         // 参数元数据（地址/字宽/范围）来自 scs_params.hpp 的参数描述表；id、波特率、
         // 应答级别、相位与角度限制由专用逻辑处理，不在这里写入。
@@ -570,7 +570,7 @@ namespace feetech_servo_ros2_control {
         return Result::success();
     }
 
-    Result FeetechServoHardwareInterface::configure_joint(const Joint& joint) const {
+    Result FeetechScsHardwareInterface::configure_joint(const Joint& joint) const {
         const auto id = joint.id;
         if (const auto result = protocol_->set_torque_enabled(id, false); !result) {
             return result;
@@ -624,7 +624,7 @@ namespace feetech_servo_ros2_control {
     }
 
     std::vector<hardware_interface::StateInterface>
-    FeetechServoHardwareInterface::export_state_interfaces() {
+    FeetechScsHardwareInterface::export_state_interfaces() {
         std::vector<hardware_interface::StateInterface> interfaces;
         for (size_t i = 0; i < info_.joints.size() && i < joints_.size(); ++i) {
             for (const auto& declared : info_.joints[i].state_interfaces) {
@@ -656,7 +656,7 @@ namespace feetech_servo_ros2_control {
     }
 
     std::vector<hardware_interface::CommandInterface>
-    FeetechServoHardwareInterface::export_command_interfaces() {
+    FeetechScsHardwareInterface::export_command_interfaces() {
         std::vector<hardware_interface::CommandInterface> interfaces;
         for (size_t i = 0; i < info_.joints.size() && i < joints_.size(); ++i) {
             for (const auto& declared : info_.joints[i].command_interfaces) {
@@ -669,7 +669,7 @@ namespace feetech_servo_ros2_control {
         return interfaces;
     }
 
-    hardware_interface::return_type FeetechServoHardwareInterface::read(
+    hardware_interface::return_type FeetechScsHardwareInterface::read(
         const rclcpp::Time& /* time */, const rclcpp::Duration& /* period */) {
         if (!protocol_) {
             LOG_ERROR_WITH_FUNC(__func__, "read 在 on_configure 之前被调用");
@@ -695,7 +695,7 @@ namespace feetech_servo_ros2_control {
         return hardware_interface::return_type::OK;
     }
 
-    hardware_interface::return_type FeetechServoHardwareInterface::write(
+    hardware_interface::return_type FeetechScsHardwareInterface::write(
         const rclcpp::Time& /* time */, const rclcpp::Duration& /* period */) {
         if (!protocol_) {
             LOG_ERROR_WITH_FUNC(__func__, "write 在 on_configure 之前被调用");
@@ -730,7 +730,7 @@ namespace feetech_servo_ros2_control {
         return hardware_interface::return_type::OK;
     }
 
-    hardware_interface::CallbackReturn FeetechServoHardwareInterface::on_activate(
+    hardware_interface::CallbackReturn FeetechScsHardwareInterface::on_activate(
         const rclcpp_lifecycle::State& /* previous_state */) {
         if (!protocol_) {
             LOG_ERROR_WITH_FUNC(__func__, "on_activate 在 on_configure 之前被调用");
@@ -763,7 +763,7 @@ namespace feetech_servo_ros2_control {
         return hardware_interface::CallbackReturn::SUCCESS;
     }
 
-    hardware_interface::CallbackReturn FeetechServoHardwareInterface::on_deactivate(
+    hardware_interface::CallbackReturn FeetechScsHardwareInterface::on_deactivate(
         const rclcpp_lifecycle::State& /* previous_state */) {
         if (!protocol_) {
             return hardware_interface::CallbackReturn::SUCCESS;
@@ -786,7 +786,7 @@ namespace feetech_servo_ros2_control {
             : hardware_interface::CallbackReturn::ERROR;
     }
 
-} // namespace feetech_servo_ros2_control
+} // namespace feetech_scs_servo_ros2_control
 
-PLUGINLIB_EXPORT_CLASS(feetech_servo_ros2_control::FeetechServoHardwareInterface,
+PLUGINLIB_EXPORT_CLASS(feetech_scs_servo_ros2_control::FeetechScsHardwareInterface,
                        hardware_interface::SystemInterface)
