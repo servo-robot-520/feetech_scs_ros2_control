@@ -18,7 +18,7 @@ namespace feetech_scs_ros2_control {
     inline constexpr uint8_t kRegisterModel = kRegisterServoMajor; // 2 字节：舵机主/次版本号
     inline constexpr uint8_t kRegisterId = 5;
     inline constexpr uint8_t kRegisterBaudRate = 6;
-    inline constexpr uint8_t kRegisterReturnDelay = 7;
+    inline constexpr uint8_t kRegisterReserved = 7; // 官方新表为预留地址（旧资料曾标注返回延时）
     inline constexpr uint8_t kRegisterResponseLevel = 8;
     inline constexpr uint8_t kRegisterMinAngleLimit = 9; // 2 字节，单位 tick
     inline constexpr uint8_t kRegisterMaxAngleLimit = 11; // 2 字节，单位 tick
@@ -40,17 +40,30 @@ namespace feetech_scs_ros2_control {
 
     inline constexpr uint8_t kRegisterTorqueEnable = 40;
     inline constexpr uint8_t kRegisterGoalPosition = 42; // 2 字节
-    inline constexpr uint8_t kRegisterGoalTime = 44; // 2 字节，单位 ms
+    inline constexpr uint8_t kRegisterGoalTime = 44; // 2 字节，单位 ms；电机模式下为 PWM 占空比
     inline constexpr uint8_t kRegisterGoalSpeed = 46; // 2 字节，单位 tick/s
     inline constexpr uint8_t kRegisterEepromLock = 48;
+    inline constexpr uint8_t kRegisterOvercurrentProtection = 31; // 新固件：过流保护
+    inline constexpr uint8_t kRegisterPositionOffset = 34; // 新固件：位置偏移
 
     inline constexpr uint8_t kRegisterPresentPosition = 56; // 2 字节
     inline constexpr uint8_t kRegisterPresentSpeed = 58; // 2 字节，符号位 15
     inline constexpr uint8_t kRegisterPresentLoad = 60; // 2 字节，符号位 10
     inline constexpr uint8_t kRegisterPresentVoltage = 62; // 单位 0.1 V
     inline constexpr uint8_t kRegisterPresentTemperature = 63; // 单位 °C
+    inline constexpr uint8_t kRegisterAsyncWriteFlag = 64;
+    inline constexpr uint8_t kRegisterServoStatus = 65;
     inline constexpr uint8_t kRegisterMoving = 66;
     inline constexpr uint8_t kRegisterPresentCurrent = 69; // 2 字节，符号位 15
+
+    // 出厂参数区（新固件布局；只读）。
+    inline constexpr uint8_t kRegisterMovingSpeedThreshold = 80;
+    inline constexpr uint8_t kRegisterDts = 81;
+    inline constexpr uint8_t kRegisterPwmMaxStep = 82;
+    inline constexpr uint8_t kRegisterMinSpeedLimit = 83;
+    inline constexpr uint8_t kRegisterMaxSpeedLimit = 84;
+    inline constexpr uint8_t kRegisterAccelerationLimit = 85;
+    inline constexpr uint8_t kRegisterAccelerationMultiplier = 86;
 
     // 一次顺序读取全部反馈状态返回的字节数（地址 0x38..0x46）：
     // 位置（2）、速度（2）、负载（2）、电压（1）、温度（1）、

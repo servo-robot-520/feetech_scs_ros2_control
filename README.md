@@ -135,7 +135,7 @@ parameters on `on_init`:
 | `range_max` | 11 (2 B) | 0..1023 | Upper command/EEPROM limit, in ticks. |
 | `range_deg` | — | 0.1..360 | Mechanical travel used for the tick/radian conversion. |
 | `speed` | — | 1..1000 | Command speed in ticks/s. |
-| `return_delay_time` | 7 | 0..254 | 2 µs units. |
+| `reserved_address` | 7 | 0..255 | Reserved address (newer firmware; older docs label it return delay). |
 | `p_coefficient` | 21 | 0..254 | Position loop P gain. |
 | `d_coefficient` | 22 | 0..254 | Position loop D gain. |
 | `cw_dead` | 26 | 0..32 | Clockwise dead zone, ticks. |

@@ -126,7 +126,7 @@ sudo usermod -aG dialout "$USER"
 | `range_max` | 11（2 字节） | 0..1023 | 命令/EEPROM 上限，单位 tick。 |
 | `range_deg` | — | 0.1..360 | 用于 tick/弧度换算的机械行程。 |
 | `speed` | — | 1..1000 | 命令速度，单位 tick/s。 |
-| `return_delay_time` | 7 | 0..254 | 单位 2 µs。 |
+| `reserved_address` | 7 | 0..255 | 预留地址（新固件命名；旧资料曾标注返回延时）。 |
 | `p_coefficient` | 21 | 0..254 | 位置环 P 增益。 |
 | `d_coefficient` | 22 | 0..254 | 位置环 D 增益。 |
 | `cw_dead` | 26 | 0..32 | 顺时针死区，单位 tick。 |
