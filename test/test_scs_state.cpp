@@ -123,6 +123,30 @@ namespace feetech_scs_ros2_control {
             EXPECT_EQ(bus.register_value(1, kRegisterEepromLock), 1);
         }
 
+        TEST(ScsStateBus, RegWriteDefersUntilAction) {
+            // 异步写：REG_WRITE 预存不动作，ACTION 才生效。
+            FakeScsBus bus({1, 2});
+            ScsSerialPort port;
+            ASSERT_TRUE(port.open(bus.slave_path(), 1000000));
+            ScsProtocol protocol(port, std::chrono::milliseconds(50));
+
+            ASSERT_TRUE(protocol.reg_write_goal_position(1, 600, 0, 500));
+            // 预存阶段不改变当前状态。
+            EXPECT_EQ(bus.present_position(1), 511);
+            ASSERT_TRUE(protocol.reg_write_goal_position(2, 700, 0, 500));
+            EXPECT_EQ(bus.present_position(2), 511);
+
+            // ACTION 无应答、异步消费，等待模拟总线处理。
+            ASSERT_TRUE(protocol.action());
+            ASSERT_TRUE(test::wait_for([&] {
+                return bus.present_position(1) == 600 && bus.present_position(2) == 700;
+            }));
+
+            // 未预存的舵机不受 ACTION 影响。
+            ASSERT_TRUE(protocol.action());
+            EXPECT_EQ(bus.present_position(1), 600);
+        }
+
         TEST(ScsStateBus, TraceHookCapturesFrames) {
             FakeScsBus bus({1});
             ScsSerialPort port;

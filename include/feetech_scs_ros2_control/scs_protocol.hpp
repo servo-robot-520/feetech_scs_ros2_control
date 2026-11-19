@@ -67,13 +67,14 @@ namespace feetech_scs_ros2_control {
                                    uint16_t speed) const;
 
         /// @brief 广播一次 SYNC WRITE，同时下发所有舵机的目标位置（地址 0x2A），
-        ///        包含位置、时间和速度。
+        ///        包含位置、时间和速度（时间按舵机各自给定）。
         /// @param ids 舵机 id 列表。
         /// @param positions 目标位置列表，单位 tick。
         /// @param time_ms 运行时间，单位 ms。
         /// @param speeds 运行速度列表，单位 tick/s。
         Result sync_write_goal_positions(std::span<const uint8_t> ids,
-                                         std::span<const uint16_t> positions, uint16_t time_ms,
+                                         std::span<const uint16_t> positions,
+                                         std::span<const uint16_t> times_ms,
                                          std::span<const uint16_t> speeds) const;
 
         /// @brief 使能或关闭扭矩输出。
@@ -101,6 +102,19 @@ namespace feetech_scs_ros2_control {
         /// @param address 寄存器地址。
         /// @param value 待写入的值。
         Result write_word(uint8_t id, uint8_t address, uint16_t value) const;
+
+        /// @brief 异步写（REG_WRITE）：舵机应答并预存，收到 ACTION 才生效。
+        /// @param id 舵机 id。
+        /// @param address 寄存器地址。
+        /// @param data 待预存的数据。
+        Result reg_write(uint8_t id, uint8_t address, std::span<const uint8_t> data) const;
+
+        /// @brief 预存单个目标位置（不动作，等 action() 触发）。
+        Result reg_write_goal_position(uint8_t id, uint16_t position, uint16_t time_ms,
+                                       uint16_t speed) const;
+
+        /// @brief 触发全部预存写入生效（ACTION，广播无应答）。
+        Result action(uint8_t id = kBroadcastId) const;
 
         /// @brief EEPROM 安全写流程：关扭矩 → 解锁 → 写入 → 回锁。
         ///        写入失败时仍会尝试回锁。

@@ -73,6 +73,8 @@ namespace feetech_scs_ros2_control {
     inline constexpr uint8_t kInstructionPing = 0x01;
     inline constexpr uint8_t kInstructionRead = 0x02;
     inline constexpr uint8_t kInstructionWrite = 0x03;
+    inline constexpr uint8_t kInstructionRegWrite = 0x04; // 异步写：预存不动作
+    inline constexpr uint8_t kInstructionAction = 0x05; // 触发预存生效
     inline constexpr uint8_t kInstructionSyncWrite = 0x83;
 
     inline constexpr uint8_t kBroadcastId = 0xFE;

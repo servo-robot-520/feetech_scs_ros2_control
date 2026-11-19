@@ -61,8 +61,9 @@ namespace feetech_scs_ros2_control {
 
             const std::vector<uint8_t> ids{1, 2};
             const std::vector<uint16_t> positions{100, 900};
+            const std::vector<uint16_t> times{0, 0};
             const std::vector<uint16_t> speeds{500, 600};
-            ASSERT_TRUE(protocol.sync_write_goal_positions(ids, positions, 0, speeds));
+            ASSERT_TRUE(protocol.sync_write_goal_positions(ids, positions, times, speeds));
             // SYNC WRITE 没有应答，等待模拟总线消费该帧。
             ASSERT_TRUE(test::wait_for([&] {
                 return bus.present_position(1) == 100 && bus.present_position(2) == 900;
@@ -107,8 +108,9 @@ namespace feetech_scs_ros2_control {
 
             const std::vector<uint8_t> ids{1, 2};
             const std::vector<uint16_t> positions{100};
+            const std::vector<uint16_t> times{0};
             const std::vector<uint16_t> speeds{500, 600};
-            EXPECT_FALSE(protocol.sync_write_goal_positions(ids, positions, 0, speeds));
+            EXPECT_FALSE(protocol.sync_write_goal_positions(ids, positions, times, speeds));
         }
 
     } // namespace

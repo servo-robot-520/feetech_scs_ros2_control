@@ -290,6 +290,31 @@ namespace feetech_scs_ros2_control::test {
                 respond(id, std::span<const uint8_t>{});
                 break;
             }
+            case kInstructionRegWrite: {
+                // 异步写：应答并预存，ACTION 时才生效。
+                if (params.size() < 2) {
+                    return;
+                }
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    pending_writes_[id] = {params[0],
+                                           std::vector<uint8_t>(params.begin() + 1, params.end())};
+                }
+                respond(id, std::span<const uint8_t>{});
+                break;
+            }
+            case kInstructionAction: {
+                // 触发所有预存写入生效。
+                std::map<uint8_t, PendingWrite> pending;
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    pending.swap(pending_writes_);
+                }
+                for (const auto& [pending_id, write] : pending) {
+                    write_registers(pending_id, write.first, write.second);
+                }
+                break;
+            }
             case kInstructionSyncWrite: {
                 if (params.size() < 2) {
                     return;
@@ -311,6 +336,8 @@ namespace feetech_scs_ros2_control::test {
                 break;
             }
         }
+
+        using PendingWrite = std::pair<uint8_t, std::vector<uint8_t>>;
 
         void write_registers(const uint8_t id, const uint8_t address,
                              const std::span<const uint8_t> data) {
@@ -336,6 +363,9 @@ namespace feetech_scs_ros2_control::test {
                 registers[kRegisterPresentSpeed + 1] = registers[kRegisterGoalSpeed + 1];
             }
         }
+
+        // 异步写预存区：id → (地址, 数据)。
+        std::map<uint8_t, PendingWrite> pending_writes_;
 
         void respond(const uint8_t id, const std::span<const uint8_t> payload) {
             if (drop_next_response_.exchange(false)) {

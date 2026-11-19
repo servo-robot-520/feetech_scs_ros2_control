@@ -182,13 +182,14 @@ namespace feetech_scs_ros2_control {
 
     Result ScsProtocol::sync_write_goal_positions(const std::span<const uint8_t> ids,
                                                   const std::span<const uint16_t> positions,
-                                                  const uint16_t time_ms,
+                                                  const std::span<const uint16_t> times_ms,
                                                   const std::span<const uint16_t> speeds) const {
         if (ids.empty()) {
             return Result::success();
         }
-        if (ids.size() != positions.size() || ids.size() != speeds.size()) {
-            return Result::failure("SYNC WRITE requires matching ids, positions and speeds");
+        if (ids.size() != positions.size() || ids.size() != times_ms.size() ||
+            ids.size() != speeds.size()) {
+            return Result::failure("SYNC WRITE requires matching ids, positions, times and speeds");
         }
 
         constexpr size_t kDataLength = 6;
@@ -205,7 +206,7 @@ namespace feetech_scs_ros2_control {
             const size_t offset = params.size();
             params.resize(offset + kDataLength);
             encode_word(params.data() + offset, positions[i]);
-            encode_word(params.data() + offset + 2, time_ms);
+            encode_word(params.data() + offset + 2, times_ms[i]);
             encode_word(params.data() + offset + 4, speeds[i]);
         }
 
@@ -269,6 +270,39 @@ namespace feetech_scs_ros2_control {
         std::array<uint8_t, 2> data{};
         encode_word(data.data(), value);
         return write_registers(id, address, data);
+    }
+
+    Result ScsProtocol::reg_write(const uint8_t id, const uint8_t address,
+                                  const std::span<const uint8_t> data) const {
+        if (data.empty() || data.size() > 250) {
+            return Result::failure("Invalid register write length " + std::to_string(data.size()));
+        }
+        std::vector<uint8_t> params;
+        params.reserve(data.size() + 1);
+        params.push_back(address);
+        params.insert(params.end(), data.begin(), data.end());
+        return transact(make_packet(id, kInstructionRegWrite, params), id, std::span<uint8_t>{});
+    }
+
+    Result ScsProtocol::reg_write_goal_position(const uint8_t id, const uint16_t position,
+                                                const uint16_t time_ms,
+                                                const uint16_t speed) const {
+        std::array<uint8_t, 7> params{};
+        params[0] = kRegisterGoalPosition;
+        encode_word(params.data() + 1, position);
+        encode_word(params.data() + 3, time_ms);
+        encode_word(params.data() + 5, speed);
+        return transact(make_packet(id, kInstructionRegWrite, params), id, std::span<uint8_t>{});
+    }
+
+    Result ScsProtocol::action(const uint8_t id) const {
+        // ACTION 广播无应答：发送即完成。
+        port_.flush_input();
+        const auto packet = make_packet(id, kInstructionAction, std::span<const uint8_t>{});
+        if (trace_hook_) {
+            trace_hook_("tx", packet);
+        }
+        return port_.write(packet);
     }
 
     Result ScsProtocol::write_eeprom(const uint8_t id, const uint8_t address,

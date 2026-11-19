@@ -722,7 +722,10 @@ namespace feetech_scs_ros2_control {
             return hardware_interface::return_type::OK;
         }
 
-        if (const auto result = protocol_->sync_write_goal_positions(ids, positions, 0, speeds);
+        // 运行时间按舵机给定；ros2_control 侧统一 0（速度模式）。
+        const std::vector<uint16_t> times(ids.size(), 0);
+        if (const auto result = protocol_->sync_write_goal_positions(ids, positions, times,
+                                                                     speeds);
             !result) {
             LOG_ERROR("{}", result.error());
             return hardware_interface::return_type::ERROR;
