@@ -45,6 +45,9 @@ namespace feetech_servo_ros2_control {
         int min;
         /// 最大取值。
         int max;
+        /// 枚举取值表（值为索引时给出实际含义）；空为自由取值。
+        const int* choices{};
+        int choice_count{};
     };
 
     /// @brief SCS 电位器版全部可读写参数的描述表（按地址升序）。
@@ -64,7 +67,9 @@ namespace feetech_servo_ros2_control {
          .access = ParamAccess::kEeprom,
          .unit = "index",
          .min = 0,
-         .max = 7},
+         .max = 7,
+         .choices = kServoBaudRates.data(),
+         .choice_count = static_cast<int>(kServoBaudRates.size())},
         {.key = "return_delay_time",
          .label = "Return delay",
          .address = kRegisterReturnDelay,
