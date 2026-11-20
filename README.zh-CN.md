@@ -55,18 +55,21 @@ sudo usermod -aG dialout "$USER"
     <param name="usb_port">/dev/ttyUSB0</param>
     <param name="baud_rate">1000000</param>
     <param name="joint_config_file">$(find my_robot_bringup)/config/scs_joints.yaml</param>
+    <param name="calibration_file">~/.config/duck_ros2/calibration.yaml</param>
   </hardware>
 
   <joint name="shoulder_pan_joint">
     <command_interface name="position"/>
+    <command_interface name="velocity"/>
     <state_interface name="position"/>
     <state_interface name="velocity"/>
     <state_interface name="load"/>
     <state_interface name="voltage"/>
     <state_interface name="temperature"/>
+    <state_interface name="raw_tick"/>
     <param name="id">1</param>
-    <param name="range_min">100</param>
-    <param name="range_max">923</param>
+    <param name="range_min_tick">100</param>
+    <param name="range_max_tick">923</param>
     <param name="p_coefficient">16</param>
     <param name="d_coefficient">16</param>
   </joint>
@@ -74,7 +77,9 @@ sudo usermod -aG dialout "$USER"
 ```
 
 只有 URDF 中声明的状态接口才会导出。支持的状态接口：`position`、`velocity`、
-`load`、`voltage`、`temperature`、`current`。命令接口仅支持 `position`。
+`load`、`voltage`、`temperature`、`current`、`raw_tick`。支持的命令接口：`position`
+（rad）与 `velocity`（单位 tick/s，直接写入 GoalSpeed 寄存器；同一周期的速度命令会
+覆盖该关节的 `speed_tick`）。
 
 ### 硬件参数
 
@@ -82,10 +87,11 @@ sudo usermod -aG dialout "$USER"
 |---|---|---|
 | `usb_port` | — | 串口设备。可在此处或关节配置文件的 `usb_port` 中提供。 |
 | `baud_rate` | `1000000` | 总线波特率。关节配置文件会覆盖该值。 |
-| `joint_config_file` | — | 可选 YAML 文件，包含总线设置与逐关节标定参数。 |
+| `joint_config_file` | — | 可选 YAML 文件，包含总线设置与逐关节参数。 |
+| `calibration_file` | — | 可选 YAML 文件，包含逐关节零点 `calibration_tick`。缺省则不偏移。见[标定文件](#标定文件)。 |
 | `response_timeout_ms` | `10` | 单个舵机响应超时。 |
 | `range_deg` | `300` | 舵机在 0..1023 tick 范围内的机械行程。关节级 `range_deg` 可覆盖。 |
-| `default_speed` | `1000` | 关节未设置 `speed` 时的命令速度，单位 tick/s。 |
+| `default_speed_tick` | `1000` | 关节未设置 `speed_tick` 时的命令速度，单位 tick/s。 |
 | `strict_model_check` | `false` | 拒绝型号不是 SC215/SC225 的舵机。 |
 
 串口设备与波特率也可以通过关节配置文件提供（顶层 `usb_port` / `baud_rate`）；
@@ -122,24 +128,24 @@ sudo usermod -aG dialout "$USER"
 | 参数 | 寄存器 | 范围 | 说明 |
 |---|---|---|---|
 | `id` | — | 0..253 | **必填**。总线上必须唯一。 |
-| `range_min` | 9（2 字节） | 0..1023 | 命令/EEPROM 下限，单位 tick。 |
-| `range_max` | 11（2 字节） | 0..1023 | 命令/EEPROM 上限，单位 tick。 |
+| `range_min_tick` | 9（2 字节） | 0..1023 | 命令/EEPROM 下限，单位 tick。 |
+| `range_max_tick` | 11（2 字节） | 0..1023 | 命令/EEPROM 上限，单位 tick。 |
 | `range_deg` | — | 0.1..360 | 用于 tick/弧度换算的机械行程。 |
-| `speed` | — | 1..1000 | 命令速度，单位 tick/s。 |
+| `speed_tick` | — | 1..1000 | 命令速度，单位 tick/s。 |
 | `reserved_address` | 7 | 0..255 | 预留地址（新固件命名；旧资料曾标注返回延时）。 |
 | `p_coefficient` | 21 | 0..254 | 位置环 P 增益。 |
 | `d_coefficient` | 22 | 0..254 | 位置环 D 增益。 |
-| `cw_dead` | 26 | 0..32 | 顺时针死区，单位 tick。 |
-| `ccw_dead` | 27 | 0..32 | 逆时针死区，单位 tick。 |
+| `cw_dead_tick` | 26 | 0..32 | 顺时针死区，单位 tick。 |
+| `ccw_dead_tick_tick` | 27 | 0..32 | 逆时针死区，单位 tick。 |
 | `max_temperature` | 13 | 0..100 | 最高工作温度，单位 °C。 |
 | `max_input_voltage` | 14 | 0..254 | 最高输入电压，单位 0.1 V（90 = 9.0 V）。 |
 | `min_input_voltage` | 15 | 0..254 | 最低输入电压，单位 0.1 V（45 = 4.5 V）。 |
 | `max_torque` | 16（2 字节） | 0..1000 | 最大扭矩，1000 = 100% 堵转扭矩。 |
 | `unloading_condition` | 19 | 0..254 | 卸载条件位域（满足哪些故障时释放扭矩）。 |
 | `led_alarm_condition` | 20 | 0..254 | LED 报警条件位域。 |
-| `protection_torque` | 37 | 0..100 | 过载保护后的输出扭矩，单位 %。 |
-| `protection_time` | 38 | 0..254 | 过载保持时间，单位 40 ms。 |
-| `overload_torque` | 39 | 0..100 | 过载阈值，单位为最大扭矩的百分比。 |
+| `protection_torque_percent` | 37 | 0..100 | 过载保护后的输出扭矩，单位 %。 |
+| `protection_time_ms` | 38 | 0..254 | 过载保持时间，单位 40 ms。 |
+| `overload_torque_percent` | 39 | 0..100 | 过载阈值，单位为最大扭矩的百分比。 |
 
 `min_input_voltage` 不得大于 `max_input_voltage`。
 
@@ -172,22 +178,22 @@ joints:
     id: 1
     p_coefficient: 16
     d_coefficient: 16
-    range_min: 100
-    range_max: 923
+    range_min_tick: 100
+    range_max_tick: 923
     range_deg: 300
-    speed: 800
+    speed_tick: 800
     max_temperature: 70
     max_input_voltage: 100
     min_input_voltage: 50
     unloading_condition: 32
     led_alarm_condition: 37
-    protection_torque: 20
-    protection_time: 100
-    overload_torque: 80
+    protection_torque_percent: 20
+    protection_time_ms: 100
+    overload_torque_percent: 80
   elbow_joint:
     id: 2
-    range_min: 20
-    range_max: 1003
+    range_min_tick: 20
+    range_max_tick: 1003
 ```
 
 条目按**舵机 id** 匹配 URDF 关节；YAML 中的关节名只是标签。相同 id 下 YAML 值覆盖
@@ -202,15 +208,40 @@ radians = (ticks - 511) * range_deg * pi / 180 / 1024
 ```
 
 `range_deg` 默认 300（SC215）。SC225 有 180° 与 300° 两种规格，请按实际舵机为该关节
-设置 `range_deg`。`range_min`/`range_max` 为原始 tick 值（0..1023），直接写入舵机
+设置 `range_deg`。`range_min_tick`/`range_max_tick` 为原始 tick 值（0..1023），直接写入舵机
 EEPROM 角度限制寄存器，并用于命令钳位；上位机或内存表读到的 tick 可直接填入配置，
-无需换算。命令会四舍五入到 tick，并钳位到 `range_min..range_max` 后发送。
+无需换算。命令会四舍五入到 tick，并钳位到 `range_min_tick..range_max_tick` 后发送。
+
+## 标定文件
+
+可选参数 `calibration_file` 设置每个关节的零点。它由标定流程写入（ros2_control 仅在
+启动时读取，从不写回）：
+
+```yaml
+version: 1
+joints:
+  shoulder_pan_joint:
+    calibration_tick: 531
+  elbow_joint:
+    calibration_tick: 508
+```
+
+`calibration_tick` 是机器人保持参考/零位姿态时观测到的原始计数值（0..1023）。启动时
+驱动计算 `offset = tick_to_radians(calibration_tick, range_deg)`，并对称地应用：
+
+- 状态：`position_rad = tick_to_radians(raw_tick) - offset`
+- 命令：`goal_tick = radians_to_tick(command_rad + offset)`
+
+`raw_tick` 状态接口始终上报未经修正的原始计数，因此标定服务可直接读取当前 tick
+而不受偏移影响。tick ↔ 弧度常量（中位 511、1024 步）保留在驱动层内部；标定文件只存
+原始 tick。未出现在文件中的关节偏移为零。匹配按关节**名称**。
 
 ## 状态接口
 
 | 接口 | 单位 | 来源 |
 |---|---|---|
-| `position` | rad | 当前位置，tick 511 = 0 rad |
+| `position` | rad | 当前位置减去零点偏移，标定 tick 处 = 0 rad |
+| `raw_tick` | tick | 原始位置计数（0..1023），不施加偏移 |
 | `velocity` | rad/s | 当前速度（符号位 15），单位 tick/s |
 | `load` | -1..1 | 当前负载（符号位 10），1000 = 100%；每周期读取 |
 | `voltage` | V | 当前电压，单位 0.1 V |
@@ -225,7 +256,8 @@ EEPROM 角度限制寄存器，并用于命令钳位；上位机或内存表读�
 - `on_activate`：读取当前位置，把命令值锁存到当前位置，然后为带 position 命令接口的
   关节使能扭矩。
 - `read`：每个关节在 `0x38` 起始处顺序读取 15 字节（`0x38..0x46`），包含负载与电流。
-- `write`：对全部被命令的关节在 `0x2A` 起始处发送一次 SYNC WRITE。
+- `write`：对 position 关节在 `0x2A`（GoalPosition）发送一次 SYNC WRITE，并对
+  velocity 关节 / 速度覆盖在 `0x2E`（GoalSpeed）再发送一次 SYNC WRITE。
 - `on_deactivate`：关闭扭矩。
 - `on_cleanup` / `on_shutdown`：必要时关闭扭矩并关闭串口。
 

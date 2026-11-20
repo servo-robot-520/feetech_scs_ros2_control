@@ -221,6 +221,43 @@ namespace feetech_scs_ros2_control {
         return Result::success();
     }
 
+    Result ScsProtocol::sync_write_goal_speeds(const std::span<const uint8_t> ids,
+                                               const std::span<const uint16_t> speeds) const {
+        if (ids.empty()) {
+            return Result::success();
+        }
+        if (ids.size() != speeds.size()) {
+            return Result::failure("SYNC WRITE requires matching ids and speeds");
+        }
+
+        // GoalSpeed 为 2 字节寄存器（地址 0x2E），每个舵机随 id 附 2 字节数据。
+        constexpr size_t kDataLength = 2;
+        if (const size_t length = 4 + (kDataLength + 1) * ids.size(); length > 255) {
+            return Result::failure("Too many servos for one SYNC WRITE (" + std::to_string(ids.size()) + ")");
+        }
+
+        std::vector<uint8_t> params;
+        params.reserve(2 + (kDataLength + 1) * ids.size());
+        params.push_back(kRegisterGoalSpeed);
+        params.push_back(static_cast<uint8_t>(kDataLength));
+        for (size_t i = 0; i < ids.size(); ++i) {
+            params.push_back(ids[i]);
+            const size_t offset = params.size();
+            params.resize(offset + kDataLength);
+            encode_word(params.data() + offset, speeds[i]);
+        }
+
+        port_.flush_input();
+        const auto packet = make_packet(kBroadcastId, kInstructionSyncWrite, params);
+        if (trace_hook_) {
+            trace_hook_("tx", packet);
+        }
+        if (const auto result = port_.write(packet); !result) {
+            return Result::failure("Failed to send SYNC WRITE: " + result.error());
+        }
+        return Result::success();
+    }
+
     Result ScsProtocol::set_torque_enabled(const uint8_t id, const bool enabled) const {
         const std::array<uint8_t, 1> value{static_cast<uint8_t>(enabled ? 1 : 0)};
         return write_registers(id, kRegisterTorqueEnable, value);

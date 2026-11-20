@@ -155,8 +155,8 @@ namespace feetech_scs_ros2_control {
 
         TEST_F(HardwareInterfaceTest, ClampsCommandToConfiguredTickRange) {
             auto info = make_hardware_info(bus_->slave_path(), {1});
-            info.joints[0].parameters["range_min"] = "600";
-            info.joints[0].parameters["range_max"] = "700";
+            info.joints[0].parameters["range_min_tick"] = "600";
+            info.joints[0].parameters["range_max_tick"] = "700";
 
             FeetechScsHardwareInterface hardware;
             ASSERT_TRUE(init_and_configure(hardware, info));
@@ -190,7 +190,7 @@ namespace feetech_scs_ros2_control {
                         "  arm_joint:\n"
                         "    id: 1\n"
                         "    p_coefficient: 33\n"
-                        "    range_max: 900\n";
+                        "    range_max_tick: 900\n";
             }
 
             auto info = make_hardware_info(bus_->slave_path(), {1});
@@ -234,9 +234,9 @@ namespace feetech_scs_ros2_control {
             params["min_input_voltage"] = "50";
             params["unloading_condition"] = "16";
             params["led_alarm_condition"] = "3";
-            params["protection_torque"] = "30";
-            params["protection_time"] = "50";
-            params["overload_torque"] = "70";
+            params["protection_torque_percent"] = "30";
+            params["protection_time_ms"] = "50";
+            params["overload_torque_percent"] = "70";
 
             FeetechScsHardwareInterface hardware;
             ASSERT_TRUE(init_and_configure(hardware, info));
@@ -254,7 +254,7 @@ namespace feetech_scs_ros2_control {
 
         TEST_F(HardwareInterfaceTest, RejectsAngleLimitOutsideTickRange) {
             auto info = make_hardware_info(bus_->slave_path(), {1});
-            info.joints[0].parameters["range_min"] = "1024";
+            info.joints[0].parameters["range_min_tick"] = "1024";
 
             FeetechScsHardwareInterface hardware;
             EXPECT_EQ(hardware.on_init(info), hardware_interface::CallbackReturn::ERROR);
@@ -262,8 +262,8 @@ namespace feetech_scs_ros2_control {
 
         TEST_F(HardwareInterfaceTest, RejectsRangeMinNotSmallerThanMax) {
             auto info = make_hardware_info(bus_->slave_path(), {1});
-            info.joints[0].parameters["range_min"] = "700";
-            info.joints[0].parameters["range_max"] = "600";
+            info.joints[0].parameters["range_min_tick"] = "700";
+            info.joints[0].parameters["range_max_tick"] = "600";
 
             FeetechScsHardwareInterface hardware;
             EXPECT_EQ(hardware.on_init(info), hardware_interface::CallbackReturn::ERROR);
@@ -321,10 +321,97 @@ namespace feetech_scs_ros2_control {
 
         TEST_F(HardwareInterfaceTest, RejectsUnsupportedCommandInterface) {
             auto info = make_hardware_info(bus_->slave_path(), {1});
-            info.joints[0].command_interfaces[0].name = hardware_interface::HW_IF_VELOCITY;
+            info.joints[0].command_interfaces[0].name = "effort";
 
             FeetechScsHardwareInterface hardware;
             EXPECT_EQ(hardware.on_init(info), hardware_interface::CallbackReturn::ERROR);
+        }
+
+        TEST_F(HardwareInterfaceTest, ExportsRawTickAndVelocityCommand) {
+            auto info = make_hardware_info(bus_->slave_path(), {1});
+            hardware_interface::InterfaceInfo raw_tick;
+            raw_tick.name = "raw_tick";
+            info.joints[0].state_interfaces.push_back(raw_tick);
+            hardware_interface::InterfaceInfo velocity_cmd;
+            velocity_cmd.name = hardware_interface::HW_IF_VELOCITY;
+            info.joints[0].command_interfaces.push_back(velocity_cmd);
+
+            FeetechScsHardwareInterface hardware;
+            ASSERT_EQ(hardware.on_init(info), hardware_interface::CallbackReturn::SUCCESS);
+            ASSERT_TRUE(init_and_configure(hardware, info));
+
+            const auto states = hardware.export_state_interfaces();
+            const auto commands = hardware.export_command_interfaces();
+            ASSERT_EQ(states.size(), 7U);
+            ASSERT_EQ(commands.size(), 2U);
+            EXPECT_EQ(states.back().get_name(), "joint_1/raw_tick");
+            EXPECT_EQ(commands.back().get_name(), "joint_1/velocity");
+
+            // raw_tick 接口上报舵机原始位置 tick（未做零点偏移）。
+            bus_->set_present_position(1, 520);
+            ASSERT_EQ(hardware.read(rclcpp::Time{}, rclcpp::Duration::from_seconds(0.01)),
+                      hardware_interface::return_type::OK);
+            EXPECT_NEAR(states.back().get_value(), 520.0, 1e-9);
+        }
+
+        TEST_F(HardwareInterfaceTest, VelocityCommandDrivesGoalSpeed) {
+            auto info = make_hardware_info(bus_->slave_path(), {1});
+            hardware_interface::InterfaceInfo velocity_cmd;
+            velocity_cmd.name = hardware_interface::HW_IF_VELOCITY;
+            info.joints[0].command_interfaces.push_back(velocity_cmd);
+
+            FeetechScsHardwareInterface hardware;
+            ASSERT_TRUE(init_and_configure(hardware, info));
+            auto commands = hardware.export_command_interfaces();
+            ASSERT_EQ(hardware.on_activate(rclcpp_lifecycle::State()),
+                      hardware_interface::CallbackReturn::SUCCESS);
+
+            // 位置命令 + 速度命令：速度覆盖默认 speed_tick，写入 GoalSpeed 寄存器。
+            commands[0].set_value(0.0);
+            commands[1].set_value(500.0);
+            ASSERT_EQ(hardware.write(rclcpp::Time{}, rclcpp::Duration::from_seconds(0.01)),
+                      hardware_interface::return_type::OK);
+            ASSERT_TRUE(test::wait_for([&] { return bus_->register_value(1, kRegisterGoalSpeed) == 0x01 &&
+                                                    bus_->register_value(1, kRegisterGoalSpeed + 1) == 0xF4; }));
+            EXPECT_EQ(bus_->register_value(1, kRegisterGoalSpeed), 0x01);
+            EXPECT_EQ(bus_->register_value(1, kRegisterGoalSpeed + 1), 0xF4);
+        }
+
+        TEST_F(HardwareInterfaceTest, CalibrationFileOffsetsZeroPose) {
+            const auto calib_path = std::filesystem::temp_directory_path() / "feetech_calibration_test.yaml";
+            {
+                std::ofstream file(calib_path);
+                ASSERT_TRUE(file.is_open());
+                file << "version: 1\n"
+                        "joints:\n"
+                        "  joint_1:\n"
+                        "    calibration_tick: 531\n";
+            }
+
+            auto info = make_hardware_info(bus_->slave_path(), {1});
+            info.hardware_parameters["calibration_file"] = calib_path.string();
+
+            FeetechScsHardwareInterface hardware;
+            ASSERT_TRUE(init_and_configure(hardware, info));
+
+            // 把当前位置设为标定 tick：state 应报告约 0（零点偏移被扣除）。
+            bus_->set_present_position(1, 531);
+            ASSERT_EQ(hardware.on_activate(rclcpp_lifecycle::State()),
+                      hardware_interface::CallbackReturn::SUCCESS);
+            auto states = hardware.export_state_interfaces();
+            ASSERT_EQ(hardware.read(rclcpp::Time{}, rclcpp::Duration::from_seconds(0.01)),
+                      hardware_interface::return_type::OK);
+            EXPECT_NEAR(states[0].get_value(), 0.0, 1e-9);
+
+            // 命令 q=0 应落到标定 tick（531），而非中位 511。
+            auto commands = hardware.export_command_interfaces();
+            commands[0].set_value(0.0);
+            ASSERT_EQ(hardware.write(rclcpp::Time{}, rclcpp::Duration::from_seconds(0.01)),
+                      hardware_interface::return_type::OK);
+            ASSERT_TRUE(test::wait_for([&] { return bus_->present_position(1) == 531; }));
+            EXPECT_EQ(bus_->present_position(1), 531);
+
+            std::filesystem::remove(calib_path);
         }
 
         TEST_F(HardwareInterfaceTest, RejectsParametersMissingOnScsSeries) {

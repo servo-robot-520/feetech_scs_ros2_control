@@ -4,8 +4,8 @@
 #include <pluginlib/class_list_macros.hpp>
 #include <rclcpp/rclcpp.hpp>
 
-#include "common_cpp/logging/log_interface/log_macro.hpp"
 #include "common_cpp/logging/rclcpp_log_handler.hpp"
+#include "common_cpp/logging/log_interface/log_macro.hpp"
 
 #include <algorithm>
 #include <array>
@@ -103,10 +103,10 @@ namespace feetech_scs_ros2_control {
             return buffer;
         }
 
-        /// @brief 支持的状态接口名称集合。
+        /// @brief 支持的状态接口名称集合。raw_tick 为舵机原始位置 tick（供标定）。
         const std::set<std::string>& supported_state_interfaces() {
             static const std::set<std::string> kSupported{"position", "velocity", "load", "voltage",
-                                                          "temperature", "current"};
+                                                          "temperature", "current", "raw_tick"};
             return kSupported;
         }
 
@@ -141,6 +141,7 @@ namespace feetech_scs_ros2_control {
 
         options_ = Options{};
         config_file_ = JointConfigFile{};
+        calibration_file_ = CalibrationFile{};
         joints_.clear();
         release_resources();
 
@@ -151,6 +152,16 @@ namespace feetech_scs_ros2_control {
             }
         }
 
+        // 装配标定文件可选；配置了就加载，未配置的关节偏移保持 0。
+        if (const auto it = info_.hardware_parameters.find("calibration_file");
+            it != info_.hardware_parameters.end() && !it->second.empty()) {
+            if (const auto result = load_calibration_file(it->second, &calibration_file_); !result) {
+                return fail(result.error());
+            }
+            LOG_INFO("Loaded calibration file '{}' with {} joints", it->second,
+                     calibration_file_.calibration_ticks.size());
+        }
+
         if (const auto result = parse_options(); result != hardware_interface::CallbackReturn::SUCCESS) {
             return result;
         }
@@ -158,10 +169,10 @@ namespace feetech_scs_ros2_control {
             return result;
         }
 
-        LOG_INFO("hardware: usb_port={} baud_rate={} response_timeout_ms={} range_deg={} default_speed={} "
+        LOG_INFO("hardware: usb_port={} baud_rate={} response_timeout_ms={} range_deg={} default_speed_tick={} "
                  "strict_model_check={}",
                  options_.usb_port, options_.baud_rate, options_.response_timeout_ms, options_.range_deg,
-                 options_.default_speed, options_.strict_model_check);
+                 options_.default_speed_tick, options_.strict_model_check);
 
         return hardware_interface::CallbackReturn::SUCCESS;
     }
@@ -297,12 +308,12 @@ namespace feetech_scs_ros2_control {
             options_.range_deg = value;
         }
 
-        if (const auto it = parameters.find("default_speed"); it != parameters.end()) {
+        if (const auto it = parameters.find("default_speed_tick"); it != parameters.end()) {
             int value = 0;
-            if (const auto result = parse_integer("default_speed", it->second, 1, 1000, &value); !result) {
+            if (const auto result = parse_integer("default_speed_tick", it->second, 1, 1000, &value); !result) {
                 return fail(result.error());
             }
-            options_.default_speed = static_cast<uint16_t>(value);
+            options_.default_speed_tick = static_cast<uint16_t>(value);
         }
 
         if (const auto it = parameters.find("strict_model_check"); it != parameters.end()) {
@@ -391,9 +402,18 @@ namespace feetech_scs_ros2_control {
                 }
             }
 
-            if (const auto it = merged.find("range_min"); it != merged.end()) {
+            // 装配零点偏移：标定姿态下读到的 tick 换算为弧度即偏移量。
+            // 运行时 state 减 offset、command 加 offset，使零位姿态对应 q=0。
+            if (const auto it = calibration_file_.calibration_ticks.find(joint.name);
+                it != calibration_file_.calibration_ticks.end()) {
+                joint.offset = tick_to_radians(it->second, joint.range_deg);
+                LOG_INFO("Joint '{}' calibration_tick={} offset={} rad", joint.name, it->second,
+                         joint.offset);
+            }
+
+            if (const auto it = merged.find("range_min_tick"); it != merged.end()) {
                 int value = 0;
-                if (const auto result = parse_integer("Joint '" + joint.name + "' range_min (ticks)", it->second,
+                if (const auto result = parse_integer("Joint '" + joint.name + "' range_min_tick", it->second,
                                                       0, 1023, &value);
                     !result) {
                     return fail(result.error());
@@ -401,9 +421,9 @@ namespace feetech_scs_ros2_control {
                 joint.min_tick = static_cast<uint16_t>(value);
                 joint.eeprom_min_tick = joint.min_tick;
             }
-            if (const auto it = merged.find("range_max"); it != merged.end()) {
+            if (const auto it = merged.find("range_max_tick"); it != merged.end()) {
                 int value = 0;
-                if (const auto result = parse_integer("Joint '" + joint.name + "' range_max (ticks)", it->second,
+                if (const auto result = parse_integer("Joint '" + joint.name + "' range_max_tick", it->second,
                                                       0, 1023, &value);
                     !result) {
                     return fail(result.error());
@@ -412,35 +432,41 @@ namespace feetech_scs_ros2_control {
                 joint.eeprom_max_tick = joint.max_tick;
             }
             if (joint.min_tick >= joint.max_tick) {
-                return fail("Joint '" + joint.name + "': range_min (" + std::to_string(joint.min_tick) +
-                            " ticks) must be smaller than range_max (" + std::to_string(joint.max_tick) +
+                return fail("Joint '" + joint.name + "': range_min_tick (" + std::to_string(joint.min_tick) +
+                            " ticks) must be smaller than range_max_tick (" + std::to_string(joint.max_tick) +
                             " ticks)");
             }
 
-            joint.speed = options_.default_speed;
-            if (const auto it = merged.find("speed"); it != merged.end()) {
+            joint.speed_tick = options_.default_speed_tick;
+            if (const auto it = merged.find("speed_tick"); it != merged.end()) {
                 int value = 0;
-                if (const auto result = parse_integer("Joint '" + joint.name + "' speed", it->second, 1, 1000,
-                                                      &value);
+                if (const auto result = parse_integer("Joint '" + joint.name + "' speed_tick", it->second, 1,
+                                                      1000, &value);
                     !result) {
                     return fail(result.error());
                 }
-                joint.speed = static_cast<uint16_t>(value);
+                joint.speed_tick = static_cast<uint16_t>(value);
             }
 
             for (const auto& command_interface : joint_info.command_interfaces) {
-                if (command_interface.name != hardware_interface::HW_IF_POSITION) {
-                    return fail("Joint '" + joint.name + "': unsupported command interface '" +
-                                command_interface.name + "' (only 'position' is supported)");
+                if (command_interface.name == hardware_interface::HW_IF_POSITION) {
+                    joint.has_position_command = true;
                 }
-                joint.has_position_command = true;
+                else if (command_interface.name == hardware_interface::HW_IF_VELOCITY) {
+                    // 速度命令单位 tick/s，直接写入 GoalSpeed 寄存器。
+                    joint.has_velocity_command = true;
+                }
+                else {
+                    return fail("Joint '" + joint.name + "': unsupported command interface '" +
+                                command_interface.name + "' (only 'position' and 'velocity' are supported)");
+                }
             }
 
             for (const auto& state_interface : joint_info.state_interfaces) {
                 if (!supported_state_interfaces().contains(state_interface.name)) {
                     return fail("Joint '" + joint.name + "': unsupported state interface '" +
                                 state_interface.name + "' (supported: position, velocity, load, voltage, "
-                                                       "temperature)");
+                                                       "temperature, current, raw_tick)");
                 }
             }
 
@@ -463,15 +489,24 @@ namespace feetech_scs_ros2_control {
     Result FeetechScsHardwareInterface::verify_servos() const {
         for (const auto& joint : joints_) {
             if (const auto result = protocol_->ping(joint.id); !result) {
-                return Result::failure("Configured servo id " + std::to_string(joint.id) + " (joint '" +
-                                       joint.name + "') is not responding, aborting startup: " + result.error());
+                std::string message = "Configured servo id ";
+                message += std::to_string(joint.id);
+                message += " (joint '";
+                message += joint.name;
+                message += "') is not responding, aborting startup: ";
+                message += result.error();
+                return Result::failure(std::move(message));
             }
 
             const auto identity = protocol_->read_identity(joint.id);
             if (!identity) {
-                return Result::failure("Configured servo id " + std::to_string(joint.id) + " (joint '" +
-                                       joint.name + "'): reading identity failed, aborting startup: " +
-                                       identity.error());
+                std::string message = "Configured servo id ";
+                message += std::to_string(joint.id);
+                message += " (joint '";
+                message += joint.name;
+                message += "'): reading identity failed, aborting startup: ";
+                message += identity.error();
+                return Result::failure(std::move(message));
             }
 
             const auto model = identity.value().model;
@@ -484,8 +519,12 @@ namespace feetech_scs_ros2_control {
                 LOG_WARN("servo id={} ({}): unsupported model {}", static_cast<unsigned>(joint.id), joint.name,
                          hex_word(model));
                 if (options_.strict_model_check) {
-                    return Result::failure("Joint '" + joint.name + "': model " + hex_word(model) +
-                                           " is not SC215/SC225");
+                    std::string message = "Joint '";
+                    message += joint.name;
+                    message += "': model ";
+                    message += hex_word(model);
+                    message += " is not SC215/SC225";
+                    return Result::failure(std::move(message));
                 }
             }
 
@@ -495,7 +534,9 @@ namespace feetech_scs_ros2_control {
                 if (!config_text.empty()) {
                     config_text += ' ';
                 }
-                config_text += key + "=" + value;
+                config_text += key;
+                config_text += '=';
+                config_text += value;
             }
             LOG_INFO("servo id={} ({}): config: {}", static_cast<unsigned>(joint.id), joint.name, config_text);
         }
@@ -510,13 +551,13 @@ namespace feetech_scs_ros2_control {
         // 应答级别、相位与角度限制由专用逻辑处理，不在这里写入。
         static constexpr std::array<std::string_view, 6> kReservedKeys{"id", "baud_rate",
                                                                       "response_level", "phase",
-                                                                      "range_min", "range_max"};
+                                                                      "range_min_tick", "range_max_tick"};
         for (const auto& descriptor : kParameterDescriptors) {
             if (descriptor.access != ParamAccess::kEeprom) {
                 continue;
             }
-            if (std::find(kReservedKeys.begin(), kReservedKeys.end(),
-                          std::string_view(descriptor.key)) != kReservedKeys.end()) {
+            if (std::ranges::find(kReservedKeys,
+                                  std::string_view(descriptor.key)) != kReservedKeys.end()) {
                 continue;
             }
             const auto it = joint.params.find(descriptor.key);
@@ -560,11 +601,11 @@ namespace feetech_scs_ros2_control {
         // 角度限制以度为单位（相对中位），写入舵机时换算为 tick。
         if (joint.eeprom_min_tick) {
             joint.word_settings.push_back(
-                {.name = "range_min", .address = kRegisterMinAngleLimit, .value = *joint.eeprom_min_tick});
+                {.name = "range_min_tick", .address = kRegisterMinAngleLimit, .value = *joint.eeprom_min_tick});
         }
         if (joint.eeprom_max_tick) {
             joint.word_settings.push_back(
-                {.name = "range_max", .address = kRegisterMaxAngleLimit, .value = *joint.eeprom_max_tick});
+                {.name = "range_max_tick", .address = kRegisterMaxAngleLimit, .value = *joint.eeprom_max_tick});
         }
 
         return Result::success();
@@ -613,8 +654,8 @@ namespace feetech_scs_ros2_control {
                 return Result::failure(std::string("Writing '") + name + "' failed: " +
                                        result.error());
             }
-            const bool angle_limit = std::string(name) == "range_min" ||
-                std::string(name) == "range_max";
+            const bool angle_limit = std::string(name) == "range_min_tick" ||
+                std::string(name) == "range_max_tick";
             LOG_INFO("servo id={} ({}): {}: current={}{} configured={}{} -> update", static_cast<unsigned>(id),
                      joint.name, name, decode_word(current.data()), angle_limit ? " ticks" : "",
                      static_cast<unsigned>(value), angle_limit ? " ticks" : "");
@@ -647,6 +688,9 @@ namespace feetech_scs_ros2_control {
                 else if (declared.name == "current") {
                     value = &joints_[i].state_current;
                 }
+                else if (declared.name == "raw_tick") {
+                    value = &joints_[i].state_raw_tick;
+                }
                 if (value != nullptr) {
                     interfaces.emplace_back(info_.joints[i].name, declared.name, value);
                 }
@@ -663,6 +707,10 @@ namespace feetech_scs_ros2_control {
                 if (declared.name == hardware_interface::HW_IF_POSITION) {
                     interfaces.emplace_back(info_.joints[i].name, hardware_interface::HW_IF_POSITION,
                                             &joints_[i].command_position);
+                }
+                else if (declared.name == hardware_interface::HW_IF_VELOCITY) {
+                    interfaces.emplace_back(info_.joints[i].name, hardware_interface::HW_IF_VELOCITY,
+                                            &joints_[i].command_velocity);
                 }
             }
         }
@@ -683,7 +731,11 @@ namespace feetech_scs_ros2_control {
                 return hardware_interface::return_type::ERROR;
             }
 
-            joint.state_position = tick_to_radians(state.value().position_ticks, joint.range_deg);
+            // state_raw_tick 保留舵机原始 tick（未做零点偏移），供标定读取。
+            joint.state_raw_tick = static_cast<double>(state.value().position_ticks);
+            // state 减去装配零点偏移，使标定姿态报告 q=0。
+            joint.state_position = tick_to_radians(state.value().position_ticks, joint.range_deg) -
+                                   joint.offset;
             joint.state_velocity = static_cast<double>(state.value().velocity_ticks_per_s) *
                 radians_per_tick(joint.range_deg);
             joint.state_load = state.value().load;
@@ -701,34 +753,57 @@ namespace feetech_scs_ros2_control {
             LOG_ERROR_WITH_FUNC(__func__, "write 在 on_configure 之前被调用");
             return hardware_interface::return_type::ERROR;
         }
-        std::vector<uint8_t> ids;
-        std::vector<uint16_t> positions;
-        std::vector<uint16_t> speeds;
+        // 把 tick/s 速度命令裁到 GoalSpeed 寄存器的有效范围。
+        auto to_speed_tick = [](const double value) {
+            const double clamped = std::clamp(value, 0.0,
+                                              static_cast<double>(std::numeric_limits<uint16_t>::max()));
+            return static_cast<uint16_t>(clamped);
+        };
+
+        std::vector<uint8_t> ids;           // 位置关节 id
+        std::vector<uint16_t> positions;    // 位置关节目标 tick
+        std::vector<uint16_t> speeds;       // 位置关节速度 tick/s
+        std::vector<uint8_t> velocity_ids;  // 仅有速度命令的关节 id
+        std::vector<uint16_t> velocity_speeds;
         ids.reserve(joints_.size());
         positions.reserve(joints_.size());
         speeds.reserve(joints_.size());
 
         for (const auto& joint : joints_) {
-            if (!joint.has_position_command || !std::isfinite(joint.command_position)) {
-                continue;
+            const bool has_position = joint.has_position_command && std::isfinite(joint.command_position);
+            const bool has_velocity = joint.has_velocity_command && std::isfinite(joint.command_velocity);
+
+            if (has_position) {
+                ids.push_back(joint.id);
+                // command 加上装配零点偏移，使 q=0 命令落到标定 tick。
+                positions.push_back(radians_to_tick(joint.command_position + joint.offset, joint.range_deg,
+                                                    joint.min_tick, joint.max_tick));
+                // 声明了速度接口时优先用它覆盖默认速度；否则用配置里的 speed_tick。
+                speeds.push_back(has_velocity ? to_speed_tick(joint.command_velocity) : joint.speed_tick);
             }
-            ids.push_back(joint.id);
-            positions.push_back(radians_to_tick(joint.command_position, joint.range_deg, joint.min_tick,
-                                                joint.max_tick));
-            speeds.push_back(joint.speed);
+            else if (has_velocity) {
+                // 无位置命令、仅有速度命令的关节，单独 SYNC WRITE GoalSpeed。
+                velocity_ids.push_back(joint.id);
+                velocity_speeds.push_back(to_speed_tick(joint.command_velocity));
+            }
         }
 
-        if (ids.empty()) {
-            return hardware_interface::return_type::OK;
+        if (!ids.empty()) {
+            // 运行时间按舵机给定；ros2_control 侧统一 0（速度模式）。
+            const std::vector<uint16_t> times(ids.size(), 0);
+            if (const auto result = protocol_->sync_write_goal_positions(ids, positions, times, speeds);
+                !result) {
+                LOG_ERROR("{}", result.error());
+                return hardware_interface::return_type::ERROR;
+            }
         }
 
-        // 运行时间按舵机给定；ros2_control 侧统一 0（速度模式）。
-        const std::vector<uint16_t> times(ids.size(), 0);
-        if (const auto result = protocol_->sync_write_goal_positions(ids, positions, times,
-                                                                     speeds);
-            !result) {
-            LOG_ERROR("{}", result.error());
-            return hardware_interface::return_type::ERROR;
+        if (!velocity_ids.empty()) {
+            if (const auto result = protocol_->sync_write_goal_speeds(velocity_ids, velocity_speeds);
+                !result) {
+                LOG_ERROR("{}", result.error());
+                return hardware_interface::return_type::ERROR;
+            }
         }
         return hardware_interface::return_type::OK;
     }

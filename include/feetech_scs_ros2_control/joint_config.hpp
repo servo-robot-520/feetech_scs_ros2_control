@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -35,5 +36,26 @@ namespace feetech_scs_ros2_control {
     /// @return 合并后的参数集合。
     JointParams merge_joint_params(const JointParams& yaml_params,
                                    const JointParams& urdf_params);
+
+    /// @brief 装配标定文件：记录每个关节在零位标定姿态下读到的原始 tick。
+    ///
+    /// 文件格式（由 duck_backend 生成）：
+    /// @code
+    /// version: 1
+    /// joints:
+    ///   <joint_name>:
+    ///     calibration_tick: 508
+    /// @endcode
+    struct CalibrationFile {
+        int version{0};
+        /// 关节名 -> 标定姿态下的原始位置 tick。
+        std::unordered_map<std::string, uint16_t> calibration_ticks;
+    };
+
+    /// @brief 从 YAML 文件加载装配标定数据。
+    /// @param file_path 标定文件路径。
+    /// @param calibration 输出参数；成功时写入解析结果。
+    /// @return 文件不存在、格式错误或缺少 joints 映射时返回错误信息。
+    Result load_calibration_file(const std::string& file_path, CalibrationFile* calibration);
 
 } // namespace feetech_scs_ros2_control

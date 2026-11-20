@@ -42,7 +42,7 @@ namespace feetech_scs_ros2_control {
         /// @brief 导出 URDF 中声明的状态接口。
         std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
 
-        /// @brief 导出 URDF 中声明的命令接口（仅支持 position）。
+        /// @brief 导出 URDF 中声明的命令接口（支持 position 与 velocity，单位 tick/s）。
         std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
 
         /// @brief 逐关节顺序读取位置、速度、负载、电压、温度和电流。
@@ -88,8 +88,9 @@ namespace feetech_scs_ros2_control {
             std::optional<uint16_t> eeprom_max_tick;
             std::vector<ByteSetting> byte_settings;
             std::vector<WordSetting> word_settings;
-            uint16_t speed{1000};
+            uint16_t speed_tick{1000};
             bool has_position_command{false};
+            bool has_velocity_command{false};
             bool torque_enabled{false};
             double state_position{0.0};
             double state_velocity{0.0};
@@ -97,7 +98,14 @@ namespace feetech_scs_ros2_control {
             double state_voltage{0.0};
             double state_temperature{0.0};
             double state_current{0.0};
+            /// @brief 舵机上报的原始位置 tick（未换算为弧度），供标定使用。
+            double state_raw_tick{0.0};
+            /// @brief 零点偏移（弧度）：标定姿态下 tick 换算出的弧度。
+            ///        state = tick_to_radians(raw) - offset；command tick 用 (cmd + offset)。
+            double offset{0.0};
             double command_position{std::numeric_limits<double>::quiet_NaN()};
+            /// @brief 速度命令，单位 tick/s，直接写入 GoalSpeed 寄存器。
+            double command_velocity{std::numeric_limits<double>::quiet_NaN()};
         };
 
         /// @brief 硬件级参数。
@@ -106,7 +114,7 @@ namespace feetech_scs_ros2_control {
             int baud_rate{1000000};
             int response_timeout_ms{10};
             double range_deg{300.0};
-            uint16_t default_speed{1000};
+            uint16_t default_speed_tick{1000};
             bool strict_model_check{false};
         };
 
@@ -130,6 +138,7 @@ namespace feetech_scs_ros2_control {
 
         Options options_;
         JointConfigFile config_file_;
+        CalibrationFile calibration_file_;
         std::vector<Joint> joints_;
         std::unique_ptr<ScsSerialPort> serial_port_;
         std::unique_ptr<ScsProtocol> protocol_;
