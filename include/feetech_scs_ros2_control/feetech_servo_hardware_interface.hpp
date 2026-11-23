@@ -100,6 +100,10 @@ namespace feetech_scs_ros2_control {
             double state_current{0.0};
             /// @brief 舵机上报的原始位置 tick（未换算为弧度），供标定使用。
             double state_raw_tick{0.0};
+            /// @brief 关节行程下限（弧度，已减零点偏移），由 min_tick 换算，导出给控制器。
+            double state_lower_limit{0.0};
+            /// @brief 关节行程上限（弧度，已减零点偏移），由 max_tick 换算，导出给控制器。
+            double state_upper_limit{0.0};
             /// @brief 零点偏移（弧度）：标定姿态下 tick 换算出的弧度。
             ///        state = tick_to_radians(raw) - offset；command tick 用 (cmd + offset)。
             double offset{0.0};
@@ -116,6 +120,9 @@ namespace feetech_scs_ros2_control {
             double range_deg{300.0};
             uint16_t default_speed_tick{1000};
             bool strict_model_check{false};
+            /// @brief 是否在启动(on_configure)时把配置的角度限位写入舵机 EEPROM。
+            ///        默认 false：仅用于内存钳位与状态导出，不写 EEPROM（保护擦写寿命）。
+            bool write_angle_limits_on_start{false};
         };
 
         /// @brief 解析 URDF 与配置文件中的硬件级参数。
@@ -125,7 +132,9 @@ namespace feetech_scs_ros2_control {
         hardware_interface::CallbackReturn build_joints();
 
         /// @brief 解析并校验关节 EEPROM 参数，生成待写入的寄存器列表。
-        static Result build_register_settings(Joint& joint);
+        /// @param joint
+        /// @param write_angle_limits_on_start 为 true 时才把 range_min/max_tick 加入待写列表。
+        static Result build_register_settings(Joint& joint, bool write_angle_limits_on_start);
 
         /// @brief 把关节的 EEPROM 参数写入舵机，仅在寄存器值不一致时更新。
         Result configure_joint(const Joint& joint) const;

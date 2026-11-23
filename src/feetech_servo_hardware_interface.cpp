@@ -44,7 +44,7 @@ namespace feetech_scs_ros2_control {
                 }
                 if (value < min || value > max) {
                     return Result::failure(label + ": " + text + " is outside [" + std::to_string(min) + ", " +
-                                           std::to_string(max) + "]");
+                        std::to_string(max) + "]");
                 }
                 *out = static_cast<int>(value);
                 return Result::success();
@@ -70,7 +70,7 @@ namespace feetech_scs_ros2_control {
                 }
                 if (!std::isfinite(value) || value < min || value > max) {
                     return Result::failure(label + ": " + text + " is outside [" + std::to_string(min) + ", " +
-                                           std::to_string(max) + "]");
+                        std::to_string(max) + "]");
                 }
                 *out = value;
                 return Result::success();
@@ -104,9 +104,11 @@ namespace feetech_scs_ros2_control {
         }
 
         /// @brief 支持的状态接口名称集合。raw_tick 为舵机原始位置 tick（供标定）。
+        ///        position_lower_limit/position_upper_limit 为关节行程上下限（弧度），供控制器读取。
         const std::set<std::string>& supported_state_interfaces() {
-            static const std::set<std::string> kSupported{"position", "velocity", "load", "voltage",
-                                                          "temperature", "current", "raw_tick"};
+            static const std::set<std::string> kSupported{
+                "position", "velocity", "load", "voltage", "temperature", "current", "raw_tick",
+                "position_lower_limit", "position_upper_limit"};
             return kSupported;
         }
 
@@ -170,9 +172,10 @@ namespace feetech_scs_ros2_control {
         }
 
         LOG_INFO("hardware: usb_port={} baud_rate={} response_timeout_ms={} range_deg={} default_speed_tick={} "
-                 "strict_model_check={}",
+                 "strict_model_check={} write_angle_limits_on_start={}",
                  options_.usb_port, options_.baud_rate, options_.response_timeout_ms, options_.range_deg,
-                 options_.default_speed_tick, options_.strict_model_check);
+                 options_.default_speed_tick, options_.strict_model_check,
+                 options_.write_angle_limits_on_start);
 
         return hardware_interface::CallbackReturn::SUCCESS;
     }
@@ -207,7 +210,7 @@ namespace feetech_scs_ros2_control {
             if (const auto result = configure_joint(joint); !result) {
                 release_resources();
                 return fail("Joint '" + joint.name + "' (id=" + std::to_string(joint.id) +
-                            "): " + result.error());
+                    "): " + result.error());
             }
         }
 
@@ -324,6 +327,15 @@ namespace feetech_scs_ros2_control {
             options_.strict_model_check = value;
         }
 
+        if (const auto it = parameters.find("write_angle_limits_on_start"); it != parameters.end()) {
+            bool value = false;
+            if (const auto result = parse_boolean("write_angle_limits_on_start", it->second, &value);
+                !result) {
+                return fail(result.error());
+            }
+            options_.write_angle_limits_on_start = value;
+        }
+
         return hardware_interface::CallbackReturn::SUCCESS;
     }
 
@@ -352,7 +364,7 @@ namespace feetech_scs_ros2_control {
             }
             if (!yaml_by_id.emplace(id, params).second) {
                 return fail("joint_config_file: duplicate servo id " + std::to_string(id) +
-                            " in joint '" + joint_name + "'");
+                    " in joint '" + joint_name + "'");
             }
         }
 
@@ -389,7 +401,7 @@ namespace feetech_scs_ros2_control {
                   "max_torque_limit"}) {
                 if (merged.contains(unsupported)) {
                     return fail("Joint '" + joint.name + "': parameter '" + unsupported +
-                                "' is not available on SCS series servos");
+                        "' is not available on SCS series servos");
                 }
             }
 
@@ -433,9 +445,14 @@ namespace feetech_scs_ros2_control {
             }
             if (joint.min_tick >= joint.max_tick) {
                 return fail("Joint '" + joint.name + "': range_min_tick (" + std::to_string(joint.min_tick) +
-                            " ticks) must be smaller than range_max_tick (" + std::to_string(joint.max_tick) +
-                            " ticks)");
+                    " ticks) must be smaller than range_max_tick (" + std::to_string(joint.max_tick) +
+                    " ticks)");
             }
+
+            // 导出给控制器的关节行程上下限（弧度，已减零点偏移）。使用驱动实际生效的
+            // min_tick/max_tick（来自配置 range_min/max_tick，否则默认 0/1023）。
+            joint.state_lower_limit = tick_to_radians(joint.min_tick, joint.range_deg) - joint.offset;
+            joint.state_upper_limit = tick_to_radians(joint.max_tick, joint.range_deg) - joint.offset;
 
             joint.speed_tick = options_.default_speed_tick;
             if (const auto it = merged.find("speed_tick"); it != merged.end()) {
@@ -458,20 +475,21 @@ namespace feetech_scs_ros2_control {
                 }
                 else {
                     return fail("Joint '" + joint.name + "': unsupported command interface '" +
-                                command_interface.name + "' (only 'position' and 'velocity' are supported)");
+                        command_interface.name + "' (only 'position' and 'velocity' are supported)");
                 }
             }
 
             for (const auto& state_interface : joint_info.state_interfaces) {
                 if (!supported_state_interfaces().contains(state_interface.name)) {
                     return fail("Joint '" + joint.name + "': unsupported state interface '" +
-                                state_interface.name + "' (supported: position, velocity, load, voltage, "
-                                                       "temperature, current, raw_tick)");
+                        state_interface.name + "' (supported: position, velocity, load, voltage, "
+                        "temperature, current, raw_tick)");
                 }
             }
 
             joint.params = std::move(merged);
-            if (const auto result = build_register_settings(joint); !result) {
+            if (const auto result = build_register_settings(joint, options_.write_angle_limits_on_start);
+                !result) {
                 return fail(result.error());
             }
             joints_.push_back(std::move(joint));
@@ -545,13 +563,14 @@ namespace feetech_scs_ros2_control {
         return Result::success();
     }
 
-    Result FeetechScsHardwareInterface::build_register_settings(Joint& joint) {
+    Result FeetechScsHardwareInterface::build_register_settings(Joint& joint,
+                                                                const bool write_angle_limits_on_start) {
         // 所有 EEPROM 参数都在 on_init 阶段完成解析与范围校验，on_configure 只负责写入。
         // 参数元数据（地址/字宽/范围）来自 scs_params.hpp 的参数描述表；id、波特率、
         // 应答级别、相位与角度限制由专用逻辑处理，不在这里写入。
         static constexpr std::array<std::string_view, 6> kReservedKeys{"id", "baud_rate",
-                                                                      "response_level", "phase",
-                                                                      "range_min_tick", "range_max_tick"};
+                                                                       "response_level", "phase",
+                                                                       "range_min_tick", "range_max_tick"};
         for (const auto& descriptor : kParameterDescriptors) {
             if (descriptor.access != ParamAccess::kEeprom) {
                 continue;
@@ -595,17 +614,21 @@ namespace feetech_scs_ros2_control {
         if (const Joint::ByteSetting* max_voltage = find_byte_setting("max_input_voltage");
             min_voltage != nullptr && max_voltage != nullptr && min_voltage->value > max_voltage->value) {
             return Result::failure("Joint '" + joint.name +
-                                   "': min_input_voltage must not exceed max_input_voltage");
+                "': min_input_voltage must not exceed max_input_voltage");
         }
 
         // 角度限制以度为单位（相对中位），写入舵机时换算为 tick。
-        if (joint.eeprom_min_tick) {
-            joint.word_settings.push_back(
-                {.name = "range_min_tick", .address = kRegisterMinAngleLimit, .value = *joint.eeprom_min_tick});
-        }
-        if (joint.eeprom_max_tick) {
-            joint.word_settings.push_back(
-                {.name = "range_max_tick", .address = kRegisterMaxAngleLimit, .value = *joint.eeprom_max_tick});
+        // 仅在 write_angle_limits_on_start=true 时才加入待写列表：默认 false 则配置的限位
+        // 只用于内存钳位/状态导出，不写 EEPROM（保护擦写寿命）。
+        if (write_angle_limits_on_start) {
+            if (joint.eeprom_min_tick) {
+                joint.word_settings.push_back(
+                    {.name = "range_min_tick", .address = kRegisterMinAngleLimit, .value = *joint.eeprom_min_tick});
+            }
+            if (joint.eeprom_max_tick) {
+                joint.word_settings.push_back(
+                    {.name = "range_max_tick", .address = kRegisterMaxAngleLimit, .value = *joint.eeprom_max_tick});
+            }
         }
 
         return Result::success();
@@ -624,7 +647,7 @@ namespace feetech_scs_ros2_control {
             std::array<uint8_t, 1> current{};
             if (const auto result = protocol_->read_registers(id, address, current); !result) {
                 return Result::failure(std::string("Reading '") + name + "' failed: " +
-                                       result.error());
+                    result.error());
             }
             if (current[0] == value) {
                 continue;
@@ -632,7 +655,7 @@ namespace feetech_scs_ros2_control {
             const std::array<uint8_t, 1> desired{value};
             if (const auto result = protocol_->write_registers(id, address, desired); !result) {
                 return Result::failure(std::string("Writing '") + name + "' failed: " +
-                                       result.error());
+                    result.error());
             }
             LOG_INFO("servo id={} ({}): {}: current={} configured={} -> update", static_cast<unsigned>(id),
                      joint.name, name, static_cast<unsigned>(current[0]),
@@ -643,7 +666,7 @@ namespace feetech_scs_ros2_control {
             std::array<uint8_t, 2> current{};
             if (const auto result = protocol_->read_registers(id, address, current); !result) {
                 return Result::failure(std::string("Reading '") + name + "' failed: " +
-                                       result.error());
+                    result.error());
             }
             if (decode_word(current.data()) == value) {
                 continue;
@@ -652,7 +675,7 @@ namespace feetech_scs_ros2_control {
             encode_word(desired.data(), value);
             if (const auto result = protocol_->write_registers(id, address, desired); !result) {
                 return Result::failure(std::string("Writing '") + name + "' failed: " +
-                                       result.error());
+                    result.error());
             }
             const bool angle_limit = std::string(name) == "range_min_tick" ||
                 std::string(name) == "range_max_tick";
@@ -690,6 +713,12 @@ namespace feetech_scs_ros2_control {
                 }
                 else if (declared.name == "raw_tick") {
                     value = &joints_[i].state_raw_tick;
+                }
+                else if (declared.name == "position_lower_limit") {
+                    value = &joints_[i].state_lower_limit;
+                }
+                else if (declared.name == "position_upper_limit") {
+                    value = &joints_[i].state_upper_limit;
                 }
                 if (value != nullptr) {
                     interfaces.emplace_back(info_.joints[i].name, declared.name, value);
@@ -735,7 +764,7 @@ namespace feetech_scs_ros2_control {
             joint.state_raw_tick = static_cast<double>(state.value().position_ticks);
             // state 减去装配零点偏移，使标定姿态报告 q=0。
             joint.state_position = tick_to_radians(state.value().position_ticks, joint.range_deg) -
-                                   joint.offset;
+                joint.offset;
             joint.state_velocity = static_cast<double>(state.value().velocity_ticks_per_s) *
                 radians_per_tick(joint.range_deg);
             joint.state_load = state.value().load;
@@ -765,10 +794,10 @@ namespace feetech_scs_ros2_control {
             return static_cast<uint16_t>(clamped);
         };
 
-        std::vector<uint8_t> ids;           // 位置关节 id
-        std::vector<uint16_t> positions;    // 位置关节目标 tick
-        std::vector<uint16_t> speeds;       // 位置关节速度 tick/s
-        std::vector<uint8_t> velocity_ids;  // 仅有速度命令的关节 id
+        std::vector<uint8_t> ids; // 位置关节 id
+        std::vector<uint16_t> positions; // 位置关节目标 tick
+        std::vector<uint16_t> speeds; // 位置关节速度 tick/s
+        std::vector<uint8_t> velocity_ids; // 仅有速度命令的关节 id
         std::vector<uint16_t> velocity_speeds;
         ids.reserve(joints_.size());
         positions.reserve(joints_.size());

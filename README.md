@@ -60,6 +60,8 @@ sudo usermod -aG dialout "$USER"
     <state_interface name="voltage"/>
     <state_interface name="temperature"/>
     <state_interface name="raw_tick"/>
+    <state_interface name="position_lower_limit"/>
+    <state_interface name="position_upper_limit"/>
     <param name="id">1</param>
     <param name="range_min_tick">100</param>
     <param name="range_max_tick">923</param>
@@ -69,7 +71,9 @@ sudo usermod -aG dialout "$USER"
 </ros2_control>
 ```
 
-只有 URDF 中声明的状态接口才会导出。支持的状态接口：`position`、`velocity`、`load`、`voltage`、`temperature`、`current`、`raw_tick`。支持的命令接口：`position`（rad）与 `velocity`（单位 tick/s，直接写入 GoalSpeed 寄存器；同一周期的速度命令会覆盖该关节的 `speed_tick`）。
+只有 URDF 中声明的状态接口才会导出。支持的状态接口：`position`、`velocity`、`load`、`voltage`、`temperature`、`current`、`raw_tick`、`position_lower_limit`、`position_upper_limit`。支持的命令接口：`position`（rad）与 `velocity`（单位 tick/s，直接写入 GoalSpeed 寄存器；同一周期的速度命令会覆盖该关节的 `speed_tick`）。
+
+其中 `position_lower_limit` / `position_upper_limit` 为关节**行程上下限**（rad），由 `min_tick/max_tick` 换算并扣除零点偏移：`limit_rad = tick_to_radians(tick, range_deg) - offset`。它们供上层控制器（如 `duck_control`）读取并做软限位钳位，不参与驱动自身运动。
 
 ### 硬件参数
 
@@ -83,6 +87,7 @@ sudo usermod -aG dialout "$USER"
 | `range_deg` | `300` | 舵机在 0..1023 tick 范围内的机械行程。关节级 `range_deg` 可覆盖。 |
 | `default_speed_tick` | `1000` | 关节未设置 `speed_tick` 时的命令速度，单位 tick/s。 |
 | `strict_model_check` | `false` | 拒绝型号不是 SC215/SC225 的舵机。 |
+| `write_angle_limits_on_start` | `false` | 为 `true` 时，启动配置阶段把各关节的 `range_min_tick/range_max_tick` 检查后写入舵机 EEPROM 角度限位寄存器（读当前值相同则跳过）。默认 `false` 不写 EEPROM，仅用于软件钳位与状态导出，以保护 EEPROM 擦写寿命。 |
 
 串口设备与波特率也可以通过关节配置文件提供（顶层 `usb_port` / `baud_rate`）；配置文件优先于 URDF 参数。
 

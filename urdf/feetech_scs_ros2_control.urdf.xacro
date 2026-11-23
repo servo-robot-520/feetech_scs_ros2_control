@@ -48,6 +48,9 @@
       <state_interface name="temperature"/>
       <state_interface name="current"/>
       <state_interface name="raw_tick"/>
+      <!-- 关节行程上下限（弧度，已减零点偏移），由 min_tick/max_tick 换算，供控制器软限位使用 -->
+      <state_interface name="position_lower_limit"/>
+      <state_interface name="position_upper_limit"/>
       <param name="id">${id}</param>
       <param name="range_deg">${range_deg}</param>
       <xacro:if value="${speed_tick != ''}">
@@ -73,13 +76,15 @@
                        joint_config_file:=''
                        calibration_file:=''
                        response_timeout_ms:='10'
-                       range_deg:='300'">
+                       range_deg:='300'
+                        write_angle_limits_on_start:='false'">
     <hardware>
       <plugin>feetech_scs_ros2_control/FeetechScsHardwareInterface</plugin>
       <param name="usb_port">${usb_port}</param>
       <param name="baud_rate">${baud_rate}</param>
       <param name="response_timeout_ms">${response_timeout_ms}</param>
       <param name="range_deg">${range_deg}</param>
+      <param name="write_angle_limits_on_start">${write_angle_limits_on_start}</param>
       <xacro:if value="${joint_config_file != ''}">
         <param name="joint_config_file">${joint_config_file}</param>
       </xacro:if>

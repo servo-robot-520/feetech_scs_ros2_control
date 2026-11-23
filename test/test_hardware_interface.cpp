@@ -157,6 +157,8 @@ namespace feetech_scs_ros2_control {
             auto info = make_hardware_info(bus_->slave_path(), {1});
             info.joints[0].parameters["range_min_tick"] = "600";
             info.joints[0].parameters["range_max_tick"] = "700";
+            // 显式开启启动写 EEPROM，才会把 range_min/max_tick 写入舵机角度限位寄存器。
+            info.hardware_parameters["write_angle_limits_on_start"] = "true";
 
             FeetechScsHardwareInterface hardware;
             ASSERT_TRUE(init_and_configure(hardware, info));
@@ -181,6 +183,20 @@ namespace feetech_scs_ros2_control {
             EXPECT_EQ(bus_->present_position(1), 600);
         }
 
+        TEST_F(HardwareInterfaceTest, DoesNotWriteAngleLimitsWhenDisabledByDefault) {
+            auto info = make_hardware_info(bus_->slave_path(), {1});
+            info.joints[0].parameters["range_min_tick"] = "600";
+            info.joints[0].parameters["range_max_tick"] = "700";
+            // 未显式开启 write_angle_limits_on_start（默认 false）：不应写 EEPROM 角度限位。
+            FeetechScsHardwareInterface hardware;
+            ASSERT_TRUE(init_and_configure(hardware, info));
+            // Fake 舵机初始角度限位为 0x0000 / 0x03FF，保持未变即证明未写。
+            EXPECT_EQ(bus_->register_value(1, kRegisterMinAngleLimit), 0x00);
+            EXPECT_EQ(bus_->register_value(1, kRegisterMinAngleLimit + 1), 0x00);
+            EXPECT_EQ(bus_->register_value(1, kRegisterMaxAngleLimit), 0x03);
+            EXPECT_EQ(bus_->register_value(1, kRegisterMaxAngleLimit + 1), 0xFF);
+        }
+
         TEST_F(HardwareInterfaceTest, YamlOverridesUrdfParametersByServoId) {
             const auto yaml_path = std::filesystem::temp_directory_path() / "feetech_joint_config_test.yaml";
             {
@@ -196,6 +212,7 @@ namespace feetech_scs_ros2_control {
             auto info = make_hardware_info(bus_->slave_path(), {1});
             info.joints[0].parameters["p_coefficient"] = "20";
             info.hardware_parameters["joint_config_file"] = yaml_path.string();
+            info.hardware_parameters["write_angle_limits_on_start"] = "true";
 
             FeetechScsHardwareInterface hardware;
             ASSERT_TRUE(init_and_configure(hardware, info));
