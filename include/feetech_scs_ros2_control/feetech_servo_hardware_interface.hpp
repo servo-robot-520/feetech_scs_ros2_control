@@ -42,7 +42,7 @@ namespace feetech_scs_ros2_control {
         /// @brief 导出 URDF 中声明的状态接口。
         std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
 
-        /// @brief 导出 URDF 中声明的命令接口（支持 position 与 velocity，单位 tick/s）。
+        /// @brief 导出 URDF 中声明的命令接口（支持 position 与 velocity；velocity 单位 rad/s）。
         std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
 
         /// @brief 逐关节顺序读取位置、速度、负载、电压、温度和电流。
@@ -104,7 +104,7 @@ namespace feetech_scs_ros2_control {
             ///        state = tick_to_radians(raw) - offset；command tick 用 (cmd + offset)。
             double offset{0.0};
             double command_position{std::numeric_limits<double>::quiet_NaN()};
-            /// @brief 速度命令，单位 tick/s，直接写入 GoalSpeed 寄存器。
+            /// @brief 速度命令，单位 rad/s；write 时换算为 GoalSpeed(tick/s) 下发。
             double command_velocity{std::numeric_limits<double>::quiet_NaN()};
         };
 

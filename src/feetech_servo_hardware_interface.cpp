@@ -453,7 +453,7 @@ namespace feetech_scs_ros2_control {
                     joint.has_position_command = true;
                 }
                 else if (command_interface.name == hardware_interface::HW_IF_VELOCITY) {
-                    // 速度命令单位 tick/s，直接写入 GoalSpeed 寄存器。
+                    // 速度命令单位 rad/s，write 时换算为 GoalSpeed(tick/s)。
                     joint.has_velocity_command = true;
                 }
                 else {
@@ -753,9 +753,14 @@ namespace feetech_scs_ros2_control {
             LOG_ERROR_WITH_FUNC(__func__, "write 在 on_configure 之前被调用");
             return hardware_interface::return_type::ERROR;
         }
-        // 把 tick/s 速度命令裁到 GoalSpeed 寄存器的有效范围。
-        auto to_speed_tick = [](const double value) {
-            const double clamped = std::clamp(value, 0.0,
+        // 把 rad/s 速度命令换算为 tick/s，并裁到 GoalSpeed 寄存器的有效范围。
+        // tick/s = (rad/s) / radians_per_tick(range_deg)；非有限值或负值按 0 处理。
+        auto to_speed_tick = [](const Joint& joint, const double rad_per_s) {
+            if (!std::isfinite(rad_per_s) || rad_per_s <= 0.0) {
+                return static_cast<uint16_t>(0);
+            }
+            const double ticks_per_s = rad_per_s / radians_per_tick(joint.range_deg);
+            const double clamped = std::clamp(ticks_per_s, 0.0,
                                               static_cast<double>(std::numeric_limits<uint16_t>::max()));
             return static_cast<uint16_t>(clamped);
         };
@@ -779,12 +784,12 @@ namespace feetech_scs_ros2_control {
                 positions.push_back(radians_to_tick(joint.command_position + joint.offset, joint.range_deg,
                                                     joint.min_tick, joint.max_tick));
                 // 声明了速度接口时优先用它覆盖默认速度；否则用配置里的 speed_tick。
-                speeds.push_back(has_velocity ? to_speed_tick(joint.command_velocity) : joint.speed_tick);
+                speeds.push_back(has_velocity ? to_speed_tick(joint, joint.command_velocity) : joint.speed_tick);
             }
             else if (has_velocity) {
                 // 无位置命令、仅有速度命令的关节，单独 SYNC WRITE GoalSpeed。
                 velocity_ids.push_back(joint.id);
-                velocity_speeds.push_back(to_speed_tick(joint.command_velocity));
+                velocity_speeds.push_back(to_speed_tick(joint, joint.command_velocity));
             }
         }
 
