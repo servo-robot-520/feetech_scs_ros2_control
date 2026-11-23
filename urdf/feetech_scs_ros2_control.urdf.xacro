@@ -1,0 +1,91 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!--
+    Feetech SCS 系列总线舵机 ros2_control 硬件接口的可复用 xacro 宏。
+
+    用法（在机器人 URDF 中）：
+
+      <xacro:include filename="$(find feetech_scs_ros2_control)/urdf/feetech_scs_ros2_control.urdf.xacro"/>
+
+      <ros2_control name="feetech_scs" type="system">
+        <xacro:feetech_scs_hardware
+            usb_port="/dev/ttyUSB0"
+            baud_rate="1000000"
+            joint_config_file="$(find my_bringup)/config/scs_joints.yaml"
+            calibration_file="$(find my_bringup)/config/calibration.yaml"/>
+        <xacro:feetech_scs_joint name="shoulder_pan_joint" id="1" range_deg="300"/>
+        <xacro:feetech_scs_joint name="elbow_joint"      id="2" range_deg="300" speed_tick="800"/>
+      </ros2_control>
+
+    说明：
+    - 一个 <ros2_control type="system"> 对应一条 SCS 总线；其余 <ros2_control> 属性决定组件名。
+    - 每个 feetech_scs_joint 生成一个 <joint>，包含 position 命令接口、可选 velocity
+      命令接口，以及 position/velocity/load/voltage/temperature/current/raw_tick 状态接口。
+      * velocity【命令】接口单位为 rad/s（与状态接口一致），驱动内部换算为 GoalSpeed(tick/s)。
+        仅用于“位置移动时覆盖速度”或纯速度关节；常规位置控制/策略驱动无需导出
+        （默认 cmd_velocity=false）。
+    - joint_config_file / calibration_file 可选；省略时仅使用 URDF 内联 <param>。
+      joint_config_file 按舵机 id 匹配；calibration_file 按关节名匹配。
+    - 物理接线后请确认每个关节的 id 与实际舵机上电 ID 一致。
+  -->
+  <xacro:macro name="feetech_scs_joint"
+               params="name
+                       id
+                       range_deg:=300
+                       speed_tick:=''
+                       range_min_tick:=''
+                       range_max_tick:=''
+                       cmd_velocity:=false">
+    <joint name="${name}">
+      <command_interface name="position"/>
+      <xacro:if value="${cmd_velocity}">
+        <command_interface name="velocity"/>
+      </xacro:if>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="load"/>
+      <state_interface name="voltage"/>
+      <state_interface name="temperature"/>
+      <state_interface name="current"/>
+      <state_interface name="raw_tick"/>
+      <param name="id">${id}</param>
+      <param name="range_deg">${range_deg}</param>
+      <xacro:if value="${speed_tick != ''}">
+        <param name="speed_tick">${speed_tick}</param>
+      </xacro:if>
+      <xacro:if value="${range_min_tick != ''}">
+        <param name="range_min_tick">${range_min_tick}</param>
+      </xacro:if>
+      <xacro:if value="${range_max_tick != ''}">
+        <param name="range_max_tick">${range_max_tick}</param>
+      </xacro:if>
+    </joint>
+  </xacro:macro>
+
+  <!--
+    硬件块宏：只生成 <hardware> 元素（插件 + 总线参数）。
+    调用方在外层写 <ros2_control name="..." type="system">，并在其后逐个
+    调用 feetech_scs_joint 生成 <joint> 元素。
+  -->
+  <xacro:macro name="feetech_scs_hardware"
+               params="usb_port:='/dev/ttyUSB0'
+                       baud_rate:='1000000'
+                       joint_config_file:=''
+                       calibration_file:=''
+                       response_timeout_ms:='10'
+                       range_deg:='300'">
+    <hardware>
+      <plugin>feetech_scs_ros2_control/FeetechScsHardwareInterface</plugin>
+      <param name="usb_port">${usb_port}</param>
+      <param name="baud_rate">${baud_rate}</param>
+      <param name="response_timeout_ms">${response_timeout_ms}</param>
+      <param name="range_deg">${range_deg}</param>
+      <xacro:if value="${joint_config_file != ''}">
+        <param name="joint_config_file">${joint_config_file}</param>
+      </xacro:if>
+      <xacro:if value="${calibration_file != ''}">
+        <param name="calibration_file">${calibration_file}</param>
+      </xacro:if>
+    </hardware>
+  </xacro:macro>
+</robot>

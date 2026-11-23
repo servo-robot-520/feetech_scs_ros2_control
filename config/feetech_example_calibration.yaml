@@ -1,0 +1,17 @@
+# 示例标定文件（对应硬件参数 calibration_file）。
+#
+# 记录每个关节在“标定/零位姿态”下读到的原始 tick（0..1023）。驱动在 on_configure
+# 时把 calibration_tick 换算成装配零点偏移：
+#   offset = (calibration_tick - 511) * range_deg * pi / 180 / 1024
+# 运行时 state 减 offset、command 加 offset，使标定姿态对应 q = 0。
+#
+# 匹配规则：按【关节名】匹配（与 joint_config_file 按舵机 id 匹配不同）。
+# 本文件仅为格式示例，值为占位（511 = 量程中点 → offset = 0）。
+# 实机请用 duck_backend 的 calibrate 服务 / HTTP /calibrate 生成真实值，
+# 或按各关节实测 tick 修改。
+version: 1
+joints:
+  shoulder_pan_joint:
+    calibration_tick: 511
+  elbow_joint:
+    calibration_tick: 511

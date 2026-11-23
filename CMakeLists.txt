@@ -81,6 +81,8 @@ install(DIRECTORY include/ DESTINATION include)
 install(
         FILES feetech_scs_ros2_control_plugin_description.xml
         DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY urdf launch config DESTINATION share/${PROJECT_NAME})
+install(FILES README.md DESTINATION share/${PROJECT_NAME})
 
 ament_export_targets(feetech_scs_ros2_controlTargets HAS_LIBRARY_TARGET)
 ament_export_dependencies(rclcpp rclcpp_lifecycle hardware_interface pluginlib

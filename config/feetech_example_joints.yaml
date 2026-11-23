@@ -1,0 +1,23 @@
+# 两关节 SCS 舵机示例的 joint_config_file（feetech_scs_system 的 joint_config_file 参数）。
+#
+# 条目按舵机 id 与 URDF 关节匹配，YAML 关节名只是标签；相同 id 下 YAML 值覆盖 URDF <param>。
+usb_port: /dev/ttyUSB0
+baud_rate: 1000000
+
+joints:
+  shoulder_pan_joint:
+    id: 1
+    range_deg: 300
+    range_min_tick: 20
+    range_max_tick: 1003
+    speed_tick: 800
+    p_coefficient: 16
+    d_coefficient: 16
+  elbow_joint:
+    id: 2
+    range_deg: 300
+    range_min_tick: 20
+    range_max_tick: 1003
+    speed_tick: 800
+    p_coefficient: 16
+    d_coefficient: 16

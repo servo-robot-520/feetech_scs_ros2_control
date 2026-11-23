@@ -1,0 +1,72 @@
+<?xml version="1.0"?>
+<!--
+  两关节 SCS 舵机示例机器人模型（仅用于本功能包自带的示例 launch）。
+
+  它只包含 base_link 与两段示例连杆（shoulder_pan_joint / elbow_joint），并通过
+  feetech_scs_ros2_control.urdf.xacro 的宏生成一条 SCS 总线的 <ros2_control type="system">
+  组件（两个舵机 id = 1 / 2）。
+
+  真实整机请不要直接用本文件，而是在你的机器人 URDF 中包含
+  feetech_scs_ros2_control.urdf.xacro，并在自定义的 <ros2_control type="system">
+  内调用 feetech_scs_hardware 以及每个关节的 feetech_scs_joint。
+  usb_port / baud_rate 可用 xacro 参数覆盖（见 launch 的 usb_port / baud_rate）。
+-->
+<robot name="feetech_scs_example" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:arg name="usb_port" default="/dev/ttyUSB0"/>
+  <xacro:arg name="baud_rate" default="1000000"/>
+
+  <xacro:include filename="feetech_scs_ros2_control.urdf.xacro"/>
+
+  <link name="base_link"/>
+
+  <link name="shoulder_link">
+    <visual>
+      <geometry>
+        <cylinder radius="0.03" length="0.08"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <mass value="0.2"/>
+      <inertia ixx="0.0001" iyy="0.0001" izz="0.0001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <link name="elbow_link">
+    <visual>
+      <geometry>
+        <cylinder radius="0.02" length="0.10"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.0001" iyy="0.0001" izz="0.0001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <joint name="shoulder_pan_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="shoulder_link"/>
+    <origin xyz="0 0 0.04" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-2.9" upper="2.9" effort="10" velocity="10"/>
+  </joint>
+
+  <joint name="elbow_joint" type="revolute">
+    <parent link="shoulder_link"/>
+    <child link="elbow_link"/>
+    <origin xyz="0 0 0.08" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.9" upper="2.9" effort="10" velocity="10"/>
+  </joint>
+
+  <ros2_control name="feetech_scs" type="system">
+    <xacro:feetech_scs_hardware usb_port="$(arg usb_port)"
+                                baud_rate="$(arg baud_rate)"
+                                joint_config_file="$(find feetech_scs_ros2_control)/config/feetech_example_joints.yaml"
+                                calibration_file="$(find feetech_scs_ros2_control)/config/feetech_example_calibration.yaml"/>
+    <xacro:feetech_scs_joint name="shoulder_pan_joint" id="1" range_deg="300"
+                             speed_tick="800" range_min_tick="20" range_max_tick="1003"/>
+    <xacro:feetech_scs_joint name="elbow_joint" id="2" range_deg="300"
+                             speed_tick="800" range_min_tick="20" range_max_tick="1003"/>
+  </ros2_control>
+</robot>
